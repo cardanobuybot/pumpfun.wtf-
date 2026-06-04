@@ -1,7 +1,7 @@
 import { Address, beginCell, toNano, fromNano } from '@ton/core';
 import type { TupleItem } from '@ton/core';
 import { getClient } from './client';
-import { FACTORY_ADDRESS, OP, TOKEN_DECIMALS } from './config';
+import { FACTORY_ADDRESS, OP, TOKEN_DECIMALS, NETWORK } from './config';
 import { buildTokenContent, parseTokenContent } from './metadata';
 import type { TokenMetadata } from './metadata';
 import { ipfsToHttp } from './ipfs';
@@ -200,6 +200,53 @@ export async function fetchTrades(address: string, limit = 30): Promise<Trade[]>
         }
     }
     return trades;
+}
+
+// ===== On-chain chat (text comments sent to the curve address) =====
+
+export type ChatMessage = {
+    from: string; // sender address
+    text: string;
+    time: number; // unix seconds
+    hash: string;
+};
+
+// Reads text comments people sent to the token address. A standard TON comment
+// is an internal message whose body is op=0 (32 zero bits) followed by the UTF-8
+// text. The curve bounces these, but the inbound tx (with the comment) stays
+// on-chain, so we surface them as a holder chat.
+export async function fetchChatMessages(address: string, limit = 50): Promise<ChatMessage[]> {
+    const client = await getClient();
+    const addr = Address.parse(address);
+    const txs = await client.getTransactions(addr, { limit });
+    const msgs: ChatMessage[] = [];
+
+    for (const tx of txs) {
+        const inMsg = tx.inMessage;
+        if (!inMsg || inMsg.info.type !== 'internal' || inMsg.info.bounced) continue;
+        try {
+            const body = inMsg.body.beginParse();
+            if (body.remainingBits < 32) continue;
+            if (body.loadUint(32) !== 0) continue; // not a text comment
+            const text = body.loadStringTail().trim();
+            if (!text) continue;
+            msgs.push({
+                from: inMsg.info.src?.toString({ testOnly: NETWORK === 'testnet' }) ?? '',
+                text,
+                time: tx.now,
+                hash: tx.hash().toString('hex'),
+            });
+        } catch {
+            // not a well-formed comment — skip
+        }
+    }
+    return msgs;
+}
+
+// op=0 + UTF-8 text — the standard TON "comment" body.
+export function buildCommentPayload(text: string): string {
+    const body = beginCell().storeUint(0, 32).storeStringTail(text).endCell();
+    return body.toBoc().toString('base64');
 }
 
 export async function fetchUserTokenBalance(tokenAddress: string, owner: Address): Promise<number> {

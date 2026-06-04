@@ -6,6 +6,7 @@ import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 import ProgressBar from '../components/ProgressBar';
 import PriceChart from '../components/PriceChart';
 import TradeHistory from '../components/TradeHistory';
+import TokenChat from '../components/TokenChat';
 import {
   fetchTokenByAddress,
   fetchTrades,
@@ -315,6 +316,11 @@ export default function TokenDetail() {
       <section className="rounded-2xl p-4" style={card}>
         <h3 className="text-sm font-semibold text-white mb-3">Recent trades</h3>
         <TradeHistory trades={trades} symbol={token.symbol} />
+      </section>
+
+      {/* Holder Chat (on-chain comments) */}
+      <section className="rounded-2xl p-4" style={card}>
+        <TokenChat tokenAddress={token.address} />
       </section>
     </div>
   );

@@ -24,5 +24,10 @@ export const CREATE_TOKEN_VALUE = '0.35';
 // Value to attach to a burn (sell) so the wallet->curve->payout chain has gas.
 export const SELL_GAS = '0.2';
 
+// TON attached to a chat message sent to the token (curve) address. The curve
+// rejects the unknown op (0 = text comment) and bounces it back, so the sender
+// only pays gas (~a cent) while the comment is permanently recorded on-chain.
+export const CHAT_MSG_VALUE = '0.01';
+
 export const tonscanBase =
     NETWORK === 'testnet' ? 'https://testnet.tonscan.org' : 'https://tonscan.org';
