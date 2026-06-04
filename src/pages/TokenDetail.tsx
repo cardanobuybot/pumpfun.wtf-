@@ -4,8 +4,11 @@ import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
 import { Address, toNano } from '@ton/core';
 import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 import ProgressBar from '../components/ProgressBar';
+import PriceChart from '../components/PriceChart';
+import TradeHistory from '../components/TradeHistory';
 import {
   fetchTokenByAddress,
+  fetchTrades,
   fetchBuyEstimate,
   fetchSellEstimate,
   fetchUserTokenBalance,
@@ -13,7 +16,7 @@ import {
   buildBuyPayload,
   buildBurnPayload,
 } from '../contracts/launchpad';
-import type { OnchainToken } from '../contracts/launchpad';
+import type { OnchainToken, Trade } from '../contracts/launchpad';
 import { SELL_GAS, tonscanBase } from '../contracts/config';
 
 function fmt(n: number, digits = 2): string {
@@ -31,6 +34,7 @@ export default function TokenDetail() {
   const address = useTonAddress();
 
   const [token, setToken] = useState<OnchainToken | null>(null);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +50,7 @@ export default function TokenDetail() {
       setError(null);
       const t = await fetchTokenByAddress(id);
       setToken(t);
+      fetchTrades(id).then(setTrades).catch(() => setTrades([]));
     } catch (e) {
       setError('Token not found or not yet indexed. ' + ((e as Error)?.message ?? ''));
     } finally {
@@ -216,6 +221,15 @@ export default function TokenDetail() {
         )}
       </section>
 
+      {/* Price Chart */}
+      <section className="rounded-2xl p-4" style={card}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-white">Price</h3>
+          <span className="text-xs text-[#64748B]">{token.priceTon.toExponential(2)} TON</span>
+        </div>
+        <PriceChart trades={trades} currentPrice={token.priceTon} />
+      </section>
+
       {/* Trading Panel */}
       <section className="rounded-2xl p-4" style={card}>
         <div className="flex gap-2 mb-5">
@@ -295,6 +309,12 @@ export default function TokenDetail() {
         >
           {!address ? 'Connect wallet' : isBuy ? `⚡ Buy ${token.symbol}` : `Sell ${token.symbol}`}
         </button>
+      </section>
+
+      {/* Trade History */}
+      <section className="rounded-2xl p-4" style={card}>
+        <h3 className="text-sm font-semibold text-white mb-3">Recent trades</h3>
+        <TradeHistory trades={trades} symbol={token.symbol} />
       </section>
     </div>
   );

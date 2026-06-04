@@ -121,6 +121,86 @@ export async function fetchSellEstimate(address: string, tokenIn: number): Promi
     return Number(fromNano(res.stack.readBigNumber()));
 }
 
+// ===== Trade history (parsed from the curve's on-chain transactions) =====
+
+const OP_INTERNAL_TRANSFER = 0x178d4519;
+const OP_BURN_NOTIFICATION = 0x7bdd97de;
+
+export type Trade = {
+    type: 'buy' | 'sell';
+    trader: string; // address of the buyer/seller
+    tonAmount: number; // TON spent (buy) or received net (sell)
+    tokenAmount: number; // tokens received (buy) or sold (sell)
+    price: number; // executed TON per whole token
+    time: number; // unix seconds
+    hash: string;
+};
+
+export async function fetchTrades(address: string, limit = 30): Promise<Trade[]> {
+    const client = await getClient();
+    const addr = Address.parse(address);
+    const txs = await client.getTransactions(addr, { limit });
+    const trades: Trade[] = [];
+
+    for (const tx of txs) {
+        const inMsg = tx.inMessage;
+        if (!inMsg || inMsg.info.type !== 'internal') continue;
+        const body = inMsg.body.beginParse();
+        if (body.remainingBits < 32) continue;
+        const op = body.loadUint(32);
+        const time = tx.now;
+        const hash = tx.hash().toString('hex');
+
+        if (op === OP.buy) {
+            // tokens minted live in the outgoing internal_transfer message
+            let tokenAmount = 0;
+            for (const [, out] of tx.outMessages) {
+                if (out.info.type !== 'internal') continue;
+                const ob = out.body.beginParse();
+                if (ob.remainingBits < 32) continue;
+                if (ob.loadUint(32) !== OP_INTERNAL_TRANSFER) continue;
+                ob.loadUint(64); // query_id
+                tokenAmount = Number(ob.loadCoins()) / UNIT;
+                break;
+            }
+            const tonAmount = Number(fromNano(inMsg.info.value.coins));
+            trades.push({
+                type: 'buy',
+                trader: inMsg.info.src?.toString({ testOnly: true }) ?? '',
+                tonAmount,
+                tokenAmount,
+                price: tokenAmount > 0 ? tonAmount / tokenAmount : 0,
+                time,
+                hash,
+            });
+        } else if (op === OP_BURN_NOTIFICATION) {
+            body.loadUint(64); // query_id
+            const tokenAmount = Number(body.loadCoins()) / UNIT;
+            const fromAddr = body.loadAddress();
+            // net TON paid back is the outgoing message to the seller. If the
+            // platform fee also routes to this address (e.g. self-trade), the net
+            // payout is the larger of the two — take the max to stay correct.
+            let tonAmount = 0;
+            for (const [, out] of tx.outMessages) {
+                if (out.info.type !== 'internal' || !out.info.dest) continue;
+                if (out.info.dest.equals(fromAddr)) {
+                    tonAmount = Math.max(tonAmount, Number(fromNano(out.info.value.coins)));
+                }
+            }
+            trades.push({
+                type: 'sell',
+                trader: fromAddr.toString({ testOnly: true }),
+                tonAmount,
+                tokenAmount,
+                price: tokenAmount > 0 ? tonAmount / tokenAmount : 0,
+                time,
+                hash,
+            });
+        }
+    }
+    return trades;
+}
+
 export async function fetchUserTokenBalance(tokenAddress: string, owner: Address): Promise<number> {
     const token = Address.parse(tokenAddress);
     const waRes = await runGet(token, 'get_wallet_address', [
