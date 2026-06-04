@@ -1,0 +1,234 @@
+import { useState, useRef } from 'react';
+import { Upload, Globe, MessageCircle } from 'lucide-react';
+
+export default function LaunchToken() {
+  const [image, setImage] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: '',
+    ticker: '',
+    description: '',
+    website: '',
+    telegram: '',
+    discord: '',
+    twitter: '',
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const inputStyle = {
+    background: '#0A0E1A',
+    border: '1px solid #1E2A4A',
+    color: '#FFFFFF',
+  };
+
+  const labelStyle = 'block text-sm font-medium text-white mb-2';
+
+  return (
+    <div className="py-5 pb-24">
+      <h1 className="text-2xl font-bold text-white mb-6">🚀 Launch Token</h1>
+
+      <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+        {/* Image Upload */}
+        <div>
+          <label className={labelStyle}>
+            Image <span className="text-[#EF4444]">*</span>
+          </label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={handleImageClick}
+            className="w-full h-48 rounded-2xl flex flex-col items-center justify-center gap-3 transition-colors hover:border-[#3B82F6]"
+            style={{
+              background: '#0A0E1A',
+              border: '2px dashed #1E2A4A',
+            }}
+          >
+            {image ? (
+              <img
+                src={image}
+                alt="Token preview"
+                className="w-full h-full object-contain rounded-2xl"
+              />
+            ) : (
+              <>
+                <Upload size={32} className="text-[#64748B]" />
+                <span className="text-[#94A3B8] text-sm">Click to upload</span>
+              </>
+            )}
+          </button>
+          <p className="text-xs text-[#64748B] mt-2">
+            Recommended: 512x512px, JPG or PNG, max 2MB
+          </p>
+        </div>
+
+        {/* Name */}
+        <div>
+          <label className={labelStyle}>
+            Name <span className="text-[#EF4444]">*</span>
+          </label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            placeholder="Enter token name..."
+            className="w-full h-12 rounded-xl px-4 text-white outline-none transition-colors"
+            style={inputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#1E2A4A'; }}
+          />
+        </div>
+
+        {/* Ticker */}
+        <div>
+          <label className={labelStyle}>
+            Ticker <span className="text-[#EF4444]">*</span>
+          </label>
+          <input
+            type="text"
+            value={form.ticker}
+            onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
+            placeholder="e.g. PEPE"
+            className="w-full h-12 rounded-xl px-4 text-white outline-none transition-colors"
+            style={inputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#1E2A4A'; }}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className={labelStyle}>
+            Description <span className="text-[#EF4444]">*</span>
+          </label>
+          <textarea
+            value={form.description}
+            onChange={(e) => handleChange('description', e.target.value)}
+            placeholder="Tell us about your token..."
+            rows={4}
+            className="w-full rounded-xl px-4 py-3 text-white outline-none transition-colors resize-none"
+            style={inputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#1E2A4A'; }}
+          />
+        </div>
+
+        {/* Socials Section */}
+        <div className="pt-2">
+          <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
+            <Globe size={16} className="text-[#3B82F6]" />
+            Social Links (optional)
+          </h3>
+
+          {/* Website */}
+          <div className="mb-4">
+            <label className="block text-xs text-[#94A3B8] mb-2">Website</label>
+            <input
+              type="text"
+              value={form.website}
+              onChange={(e) => handleChange('website', e.target.value)}
+              placeholder="https://yourtoken.xyz"
+              className="w-full h-11 rounded-xl px-4 text-white text-sm outline-none transition-colors"
+              style={inputStyle}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#1E2A4A'; }}
+            />
+          </div>
+
+          {/* X (Twitter) */}
+          <div className="mb-4">
+            <label className="block text-xs text-[#94A3B8] mb-2 flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-[#64748B]">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              X (Twitter)
+            </label>
+            <input
+              type="text"
+              value={form.twitter}
+              onChange={(e) => handleChange('twitter', e.target.value)}
+              placeholder="https://x.com/yourtoken"
+              className="w-full h-11 rounded-xl px-4 text-white text-sm outline-none transition-colors"
+              style={inputStyle}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#1E2A4A'; }}
+            />
+          </div>
+
+          {/* Telegram */}
+          <div className="mb-4">
+            <label className="block text-xs text-[#94A3B8] mb-2 flex items-center gap-1.5">
+              <MessageCircle size={12} className="text-[#64748B]" />
+              Telegram
+            </label>
+            <input
+              type="text"
+              value={form.telegram}
+              onChange={(e) => handleChange('telegram', e.target.value)}
+              placeholder="https://t.me/yourtoken"
+              className="w-full h-11 rounded-xl px-4 text-white text-sm outline-none transition-colors"
+              style={inputStyle}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#1E2A4A'; }}
+            />
+          </div>
+
+          {/* Discord */}
+          <div className="mb-4">
+            <label className="block text-xs text-[#94A3B8] mb-2 flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-[#64748B]">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+              </svg>
+              Discord
+            </label>
+            <input
+              type="text"
+              value={form.discord}
+              onChange={(e) => handleChange('discord', e.target.value)}
+              placeholder="https://discord.gg/yourtoken"
+              className="w-full h-11 rounded-xl px-4 text-white text-sm outline-none transition-colors"
+              style={inputStyle}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#1E2A4A'; }}
+            />
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <button
+          type="submit"
+          className="w-full h-12 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:scale-[1.02] mt-6"
+          style={{
+            background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+            boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)',
+          }}
+        >
+          🚀 Create Token
+        </button>
+      </form>
+    </div>
+  );
+}
