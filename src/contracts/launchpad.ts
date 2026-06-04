@@ -4,6 +4,7 @@ import { getClient } from './client';
 import { FACTORY_ADDRESS, OP, TOKEN_DECIMALS } from './config';
 import { buildTokenContent, parseTokenContent } from './metadata';
 import type { TokenMetadata } from './metadata';
+import { ipfsToHttp } from './ipfs';
 
 const FACTORY = Address.parse(FACTORY_ADDRESS);
 const UNIT = 10 ** TOKEN_DECIMALS;
@@ -73,7 +74,7 @@ export async function fetchTokenInfo(id: number, address: Address): Promise<Onch
         name: meta.name || 'Unknown',
         symbol: meta.symbol || '???',
         description: meta.description || '',
-        image: meta.image || '',
+        image: meta.image ? ipfsToHttp(meta.image) : '',
         realTon,
         tokenReserve: Number(tokenReserve) / UNIT,
         totalSupply: totalSupplyWhole,

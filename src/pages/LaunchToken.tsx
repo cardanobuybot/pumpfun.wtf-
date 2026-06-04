@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Upload, Globe, MessageCircle } from 'lucide-react';
+import { Upload, Globe, MessageCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Address, toNano } from '@ton/core';
 import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
@@ -8,12 +8,16 @@ import {
   predictTokenAddress,
 } from '../contracts/launchpad';
 import { FACTORY_ADDRESS, CREATE_TOKEN_VALUE } from '../contracts/config';
+import { uploadImageToIPFS, ipfsConfigured } from '../contracts/ipfs';
 
 export default function LaunchToken() {
   const navigate = useNavigate();
   const [tonConnectUI] = useTonConnectUI();
   const address = useTonAddress();
   const [image, setImage] = useState<string | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -29,6 +33,7 @@ export default function LaunchToken() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const chooseImage = () => {
+    if (uploadedUrl) return uploadedUrl; // IPFS upload wins
     if (form.imageUrl.startsWith('http')) return form.imageUrl;
     if (image && image.length < 8000) return image; // small data URL only
     return `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(form.ticker || 'token')}`;
@@ -42,6 +47,10 @@ export default function LaunchToken() {
     }
     if (!form.name.trim() || !form.ticker.trim()) {
       setStatus('Name and ticker are required.');
+      return;
+    }
+    if (uploading) {
+      setStatus('Image is still uploading — please wait a moment.');
       return;
     }
     setSubmitting(true);
@@ -85,13 +94,26 @@ export default function LaunchToken() {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // local preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => setImage(reader.result as string);
+    reader.readAsDataURL(file);
+
+    setUploadedUrl(null);
+    setUploadError(null);
+
+    if (!ipfsConfigured) {
+      setUploadError('Upload not configured — paste an image URL below instead.');
+      return;
     }
+
+    setUploading(true);
+    uploadImageToIPFS(file)
+      .then((url) => setUploadedUrl(url))
+      .catch((err) => setUploadError((err as Error)?.message ?? 'Upload failed'))
+      .finally(() => setUploading(false));
   };
 
   const handleChange = (field: string, value: string) => {
@@ -145,14 +167,32 @@ export default function LaunchToken() {
               </>
             )}
           </button>
+
+          {/* Upload status */}
+          {uploading && (
+            <p className="text-xs mt-2 flex items-center gap-1.5 text-[#3B82F6]">
+              <Loader2 size={13} className="animate-spin" /> Uploading to IPFS…
+            </p>
+          )}
+          {uploadedUrl && !uploading && (
+            <p className="text-xs mt-2 flex items-center gap-1.5 text-[#22C55E]">
+              <CheckCircle2 size={13} /> Pinned to IPFS ✓
+            </p>
+          )}
+          {uploadError && !uploading && (
+            <p className="text-xs mt-2 text-[#F59E0B]">{uploadError}</p>
+          )}
+
           <p className="text-xs text-[#64748B] mt-2">
-            Tip: paste an image URL below for best results (uploaded files are stored on-chain only if tiny).
+            {ipfsConfigured
+              ? 'Upload an image — it’s pinned to IPFS. Or paste a direct URL below.'
+              : 'Paste a direct image URL below (file upload isn’t configured).'}
           </p>
           <input
             type="text"
             value={form.imageUrl}
             onChange={(e) => handleChange('imageUrl', e.target.value)}
-            placeholder="https://.../image.png (recommended)"
+            placeholder="https://.../image.png"
             className="w-full h-11 rounded-xl px-4 text-white text-sm outline-none transition-colors mt-2"
             style={inputStyle}
             onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
@@ -300,14 +340,20 @@ export default function LaunchToken() {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || uploading}
           className="w-full h-12 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:scale-[1.02] mt-6 disabled:opacity-60"
           style={{
             background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
             boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)',
           }}
         >
-          {submitting ? 'Creating…' : address ? '🚀 Create Token (0.1 TON)' : 'Connect wallet to launch'}
+          {uploading
+            ? 'Uploading image…'
+            : submitting
+              ? 'Creating…'
+              : address
+                ? '🚀 Create Token (0.1 TON)'
+                : 'Connect wallet to launch'}
         </button>
       </form>
     </div>
