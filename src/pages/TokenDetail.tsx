@@ -6,10 +6,12 @@ import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 import ProgressBar from '../components/ProgressBar';
 import PriceChart from '../components/PriceChart';
 import TradeHistory from '../components/TradeHistory';
+import Holders from '../components/Holders';
 import TokenChat from '../components/TokenChat';
 import {
   fetchTokenByAddress,
   fetchTrades,
+  fetchCreatorAddress,
   fetchBuyEstimate,
   fetchSellEstimate,
   fetchUserTokenBalance,
@@ -36,6 +38,8 @@ export default function TokenDetail() {
 
   const [token, setToken] = useState<OnchainToken | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [dev, setDev] = useState<string | null>(null);
+  const [tab, setTab] = useState<'overview' | 'trades' | 'holders' | 'chat'>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +56,7 @@ export default function TokenDetail() {
       const t = await fetchTokenByAddress(id);
       setToken(t);
       fetchTrades(id).then(setTrades).catch(() => setTrades([]));
+      fetchCreatorAddress(id).then(setDev).catch(() => setDev(null));
     } catch (e) {
       setError('Token not found or not yet indexed. ' + ((e as Error)?.message ?? ''));
     } finally {
@@ -222,6 +227,30 @@ export default function TokenDetail() {
         )}
       </section>
 
+      {/* Tab bar */}
+      <div className="grid grid-cols-4 gap-1 rounded-xl p-1" style={card}>
+        {([
+          ['overview', 'Overview'],
+          ['trades', 'Trades'],
+          ['holders', 'Holders'],
+          ['chat', 'Chat'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`h-9 rounded-lg text-sm font-semibold transition-colors ${
+              tab === key ? 'text-white' : 'text-[#64748B] hover:text-[#94A3B8]'
+            }`}
+            style={{ background: tab === key ? '#1E2A4A' : 'transparent' }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ===== Overview tab ===== */}
+      {tab === 'overview' && (
+      <>
       {/* Price Chart */}
       <section className="rounded-2xl p-4" style={card}>
         <div className="flex items-center justify-between mb-2">
@@ -311,17 +340,37 @@ export default function TokenDetail() {
           {!address ? 'Connect wallet' : isBuy ? `⚡ Buy ${token.symbol}` : `Sell ${token.symbol}`}
         </button>
       </section>
+      </>
+      )}
 
-      {/* Trade History */}
-      <section className="rounded-2xl p-4" style={card}>
-        <h3 className="text-sm font-semibold text-white mb-3">Recent trades</h3>
-        <TradeHistory trades={trades} symbol={token.symbol} />
-      </section>
+      {/* ===== Trades tab ===== */}
+      {tab === 'trades' && (
+        <section className="rounded-2xl p-4" style={card}>
+          <h3 className="text-sm font-semibold text-white mb-3">Recent trades</h3>
+          <TradeHistory trades={trades} symbol={token.symbol} dev={dev} />
+        </section>
+      )}
 
-      {/* Holder Chat (on-chain comments) */}
-      <section className="rounded-2xl p-4" style={card}>
-        <TokenChat tokenAddress={token.address} />
-      </section>
+      {/* ===== Holders tab ===== */}
+      {tab === 'holders' && (
+        <section className="rounded-2xl p-4" style={card}>
+          <h3 className="text-sm font-semibold text-white mb-3">Holders</h3>
+          <Holders
+            tokenAddress={token.address}
+            totalSupply={token.totalSupply}
+            trades={trades}
+            symbol={token.symbol}
+            dev={dev}
+          />
+        </section>
+      )}
+
+      {/* ===== Chat tab (on-chain comments) ===== */}
+      {tab === 'chat' && (
+        <section className="rounded-2xl p-4" style={card}>
+          <TokenChat tokenAddress={token.address} />
+        </section>
+      )}
     </div>
   );
 }

@@ -122,6 +122,15 @@ export async function fetchSellEstimate(address: string, tokenIn: number): Promi
     return Number(fromNano(res.stack.readBigNumber()));
 }
 
+// Creator ("dev") wallet of a token, as stored on the curve contract.
+// Returned in the same string form used for Trade.trader so the two compare equal.
+export async function fetchCreatorAddress(address: string): Promise<string> {
+    const res = await runGet(Address.parse(address), 'get_curve_addresses');
+    res.stack.readAddress(); // factory
+    const creator = res.stack.readAddress(); // creator
+    return creator.toString({ testOnly: true });
+}
+
 // ===== Trade history (parsed from the curve's on-chain transactions) =====
 
 const OP_INTERNAL_TRANSFER = 0x178d4519;
