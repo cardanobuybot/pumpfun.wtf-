@@ -1,7 +1,6 @@
-import { Buffer } from 'buffer'
-// TON SDK relies on Buffer being available globally in the browser.
-;(globalThis as unknown as { Buffer: typeof Buffer }).Buffer =
-  (globalThis as unknown as { Buffer?: typeof Buffer }).Buffer || Buffer
+// Installs the Buffer global. MUST be the first import — TON SDK modules read
+// Buffer at evaluation time, which happens before this module's body runs.
+import './polyfills'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
