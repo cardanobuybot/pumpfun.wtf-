@@ -1,16 +1,26 @@
 import { useState } from 'react';
 import { Home, Plus, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import TonWalletModal from './TonWalletModal';
+import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
 }
 
 export default function Header({ onSearch }: HeaderProps) {
-  const [walletOpen, setWalletOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [tonConnectUI] = useTonConnectUI();
+  const address = useTonAddress();
+  const shortAddress = address ? `${address.slice(0, 4)}…${address.slice(-4)}` : '';
+
+  const handleWallet = () => {
+    if (address) {
+      tonConnectUI.disconnect();
+    } else {
+      tonConnectUI.openModal();
+    }
+  };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -64,15 +74,17 @@ export default function Header({ onSearch }: HeaderProps) {
 
           {/* Connect Wallet */}
           <button
-            onClick={() => setWalletOpen(true)}
+            onClick={handleWallet}
             className="h-9 px-4 rounded-xl font-semibold text-xs transition-all duration-200 hover:scale-[1.03]"
             style={{
-              background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+              background: address
+                ? 'linear-gradient(135deg, #22C55E, #16A34A)'
+                : 'linear-gradient(135deg, #3B82F6, #2563EB)',
               color: '#FFFFFF',
               boxShadow: '0 2px 12px rgba(59, 130, 246, 0.3)',
             }}
           >
-            Connect
+            {address ? shortAddress : 'Connect'}
           </button>
         </div>
       </header>
@@ -105,8 +117,6 @@ export default function Header({ onSearch }: HeaderProps) {
           </div>
         </div>
       )}
-
-      <TonWalletModal open={walletOpen} onClose={() => setWalletOpen(false)} />
     </>
   );
 }

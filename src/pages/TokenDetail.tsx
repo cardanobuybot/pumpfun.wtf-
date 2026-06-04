@@ -1,73 +1,158 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
+import { Address, toNano } from '@ton/core';
+import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 import ProgressBar from '../components/ProgressBar';
-import { chartData, lastTrades } from '../data/tokens';
-import type { Token } from '../data/tokens';
+import {
+  fetchTokenByAddress,
+  fetchBuyEstimate,
+  fetchSellEstimate,
+  fetchUserTokenBalance,
+  getUserWalletAddress,
+  buildBuyPayload,
+  buildBurnPayload,
+} from '../contracts/launchpad';
+import type { OnchainToken } from '../contracts/launchpad';
+import { SELL_GAS, tonscanBase } from '../contracts/config';
 
-const demoToken: Token = {
-  id: 'idte.test',
-  ticker: 'TIKR',
-  name: 'test',
-  shortId: 'idte..test',
-  description: 'test',
-  progress: 23.48,
-  marketCap: '$12.3K',
-  timeAgo: '3h ago',
-  txs: 51,
-  volume24h: '$1.26k',
-  kingOfHillProgress: 15.4,
-  image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=test&backgroundColor=b6e3f4',
-};
+function fmt(n: number, digits = 2): string {
+  if (!isFinite(n)) return '0';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(2) + 'K';
+  if (n > 0 && n < 0.0001) return n.toExponential(2);
+  return n.toLocaleString(undefined, { maximumFractionDigits: digits });
+}
 
 export default function TokenDetail() {
-  useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
+  const [tonConnectUI] = useTonConnectUI();
+  const address = useTonAddress();
+
+  const [token, setToken] = useState<OnchainToken | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [isBuy, setIsBuy] = useState(true);
   const [amount, setAmount] = useState('');
+  const [estimate, setEstimate] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [status, setStatus] = useState<string | null>(null);
 
-  const token = demoToken;
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div
-          className="rounded-lg px-3 py-2"
-          style={{
-            background: 'rgba(15, 22, 41, 0.95)',
-            border: '1px solid #1E2A4A',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          <p className="text-xs text-[#94A3B8]">time: 25 Dec &apos;24 {label}</p>
-          <p className="text-sm font-semibold" style={{ color: '#3B82F6' }}>
-            price: {payload[0].value.toFixed(6)}
-          </p>
-        </div>
-      );
+  const load = useCallback(async () => {
+    if (!id) return;
+    try {
+      setError(null);
+      const t = await fetchTokenByAddress(id);
+      setToken(t);
+    } catch (e) {
+      setError('Token not found or not yet indexed. ' + ((e as Error)?.message ?? ''));
+    } finally {
+      setLoading(false);
     }
-    return null;
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // load the user's balance of this token
+  useEffect(() => {
+    if (!id || !address) {
+      setBalance(0);
+      return;
+    }
+    fetchUserTokenBalance(id, Address.parse(address)).then(setBalance).catch(() => setBalance(0));
+  }, [id, address, token]);
+
+  // live estimate as the user types
+  useEffect(() => {
+    if (!id || !amount || Number(amount) <= 0) {
+      setEstimate(0);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      try {
+        if (isBuy) {
+          const tokens = await fetchBuyEstimate(id, amount);
+          if (!cancelled) setEstimate(tokens);
+        } else {
+          const ton = await fetchSellEstimate(id, Number(amount));
+          if (!cancelled) setEstimate(ton);
+        }
+      } catch {
+        if (!cancelled) setEstimate(0);
+      }
+    };
+    const h = setTimeout(run, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(h);
+    };
+  }, [id, amount, isBuy]);
+
+  const handleTrade = async () => {
+    if (!id) return;
+    if (!address) {
+      tonConnectUI.openModal();
+      return;
+    }
+    if (!amount || Number(amount) <= 0) {
+      setStatus('Enter an amount.');
+      return;
+    }
+    try {
+      setStatus('Confirm in your wallet…');
+      if (isBuy) {
+        await tonConnectUI.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 300,
+          messages: [{ address: id, amount: toNano(amount).toString(), payload: buildBuyPayload() }],
+        });
+      } else {
+        if (Number(amount) > balance) {
+          setStatus('Not enough tokens.');
+          return;
+        }
+        const walletAddr = await getUserWalletAddress(id, Address.parse(address));
+        const payload = buildBurnPayload(Number(amount), Address.parse(address));
+        await tonConnectUI.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 300,
+          messages: [
+            { address: walletAddr.toString(), amount: toNano(SELL_GAS).toString(), payload },
+          ],
+        });
+      }
+      setStatus('✅ Sent! Updating in a few seconds…');
+      setAmount('');
+      setTimeout(() => {
+        load();
+        setStatus(null);
+      }, 6000);
+    } catch (err) {
+      setStatus('Failed: ' + ((err as Error)?.message ?? String(err)));
+    }
   };
+
+  if (loading) {
+    return <div className="py-20 text-center text-[#94A3B8]">Loading token…</div>;
+  }
+  if (error || !token) {
+    return (
+      <div className="py-20 text-center space-y-4">
+        <p className="text-[#94A3B8]">{error ?? 'Token not found'}</p>
+        <button onClick={() => navigate('/')} className="text-[#3B82F6]">← Back home</button>
+      </div>
+    );
+  }
+
+  const card = { background: '#0F1629', border: '1px solid #1E2A4A' } as const;
 
   return (
     <div className="space-y-5 py-5">
       {/* Token Info Card */}
-      <section
-        className="rounded-2xl p-4"
-        style={{
-          background: '#0F1629',
-          border: '1px solid #1E2A4A',
-        }}
-      >
-        {/* Back + Header */}
+      <section className="rounded-2xl p-4" style={card}>
         <div className="flex items-center gap-3 mb-4">
           <button
             onClick={() => navigate('/')}
@@ -76,87 +161,97 @@ export default function TokenDetail() {
           >
             <ArrowLeft size={18} className="text-[#94A3B8]" />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-white text-lg">{token.ticker}</span>
-              <span className="text-[#94A3B8]">{token.name}</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-white text-lg">{token.symbol}</span>
+            <span className="text-[#94A3B8]">{token.name}</span>
           </div>
+          <button
+            onClick={load}
+            className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#1E2A4A]"
+          >
+            <RefreshCw size={15} className="text-[#64748B]" />
+          </button>
         </div>
 
-        {/* Token Image + Info */}
         <div className="flex gap-4 mb-4">
           <img
-            src={token.image}
+            src={token.image || `https://api.dicebear.com/7.x/shapes/svg?seed=${token.symbol}`}
             alt={token.name}
-            className="w-20 h-20 rounded-xl flex-shrink-0"
+            className="w-20 h-20 rounded-xl flex-shrink-0 object-cover"
             style={{ background: '#1E2A4A' }}
           />
-          <div className="flex-1">
-            <p className="font-mono text-xs text-[#64748B] mb-1">{token.shortId}</p>
-            <p className="text-sm text-[#94A3B8] mb-3">{token.description}</p>
+          <div className="flex-1 min-w-0">
+            <a
+              href={`${tonscanBase}/address/${token.address}`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono text-xs text-[#3B82F6] mb-1 flex items-center gap-1 hover:underline"
+            >
+              {token.address.slice(0, 6)}…{token.address.slice(-6)} <ExternalLink size={11} />
+            </a>
+            <p className="text-sm text-[#94A3B8]">{token.description}</p>
           </div>
         </div>
 
-        {/* Progress Bars */}
         <div className="space-y-3 mb-4">
-          <ProgressBar value={token.progress} />
-          <ProgressBar
-            value={token.kingOfHillProgress}
-            variant="yellow"
-            label="King Of The Hill Progress"
-          />
+          <ProgressBar value={token.progress} label="Bonding curve progress" />
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center justify-between text-xs text-[#64748B]">
-          <span>{token.timeAgo}</span>
-          <span>{token.txs} txs</span>
-          <span>{token.volume24h} Vol 24h</span>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg py-2" style={{ background: '#0A0E1A' }}>
+            <p className="text-[10px] text-[#64748B]">Market cap</p>
+            <p className="text-sm text-white font-semibold">{fmt(token.marketCapTon)} TON</p>
+          </div>
+          <div className="rounded-lg py-2" style={{ background: '#0A0E1A' }}>
+            <p className="text-[10px] text-[#64748B]">Raised</p>
+            <p className="text-sm text-white font-semibold">{fmt(token.realTon)} TON</p>
+          </div>
+          <div className="rounded-lg py-2" style={{ background: '#0A0E1A' }}>
+            <p className="text-[10px] text-[#64748B]">Price</p>
+            <p className="text-sm text-white font-semibold">{token.priceTon.toExponential(2)}</p>
+          </div>
         </div>
+        {token.graduated && (
+          <p className="mt-3 text-center text-xs text-[#F59E0B]">🎓 Graduated — trading locked</p>
+        )}
       </section>
 
       {/* Trading Panel */}
-      <section
-        className="rounded-2xl p-4"
-        style={{
-          background: '#0F1629',
-          border: '1px solid #1E2A4A',
-        }}
-      >
-        {/* Buy / Sell Toggle */}
+      <section className="rounded-2xl p-4" style={card}>
         <div className="flex gap-2 mb-5">
           <button
-            onClick={() => setIsBuy(true)}
-            className="flex-1 h-11 rounded-xl font-semibold text-white text-sm transition-all duration-200"
-            style={{
-              background: isBuy ? '#22C55E' : '#3D3D3D',
-              boxShadow: isBuy ? '0 4px 16px rgba(34, 197, 94, 0.3)' : 'none',
-            }}
+            onClick={() => { setIsBuy(true); setAmount(''); }}
+            className="flex-1 h-11 rounded-xl font-semibold text-white text-sm transition-all"
+            style={{ background: isBuy ? '#22C55E' : '#3D3D3D' }}
           >
             Buy
           </button>
           <button
-            onClick={() => setIsBuy(false)}
-            className="flex-1 h-11 rounded-xl font-semibold text-white text-sm transition-all duration-200"
-            style={{
-              background: !isBuy ? '#EF4444' : '#3D3D3D',
-              boxShadow: !isBuy ? '0 4px 16px rgba(239, 68, 68, 0.3)' : 'none',
-            }}
+            onClick={() => { setIsBuy(false); setAmount(''); }}
+            className="flex-1 h-11 rounded-xl font-semibold text-white text-sm transition-all"
+            style={{ background: !isBuy ? '#EF4444' : '#3D3D3D' }}
           >
             Sell
           </button>
         </div>
 
-        {/* Amount Input */}
         <div className="mb-4">
-          <label className="block text-sm text-[#94A3B8] mb-2">Amount</label>
+          <div className="flex justify-between mb-2">
+            <label className="text-sm text-[#94A3B8]">
+              Amount ({isBuy ? 'TON' : token.symbol})
+            </label>
+            {!isBuy && (
+              <button className="text-xs text-[#3B82F6]" onClick={() => setAmount(String(balance))}>
+                Balance: {fmt(balance)} (max)
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
               style={{ background: '#1E2A4A' }}
             >
-              <span className="text-[#3B82F6] font-bold text-[10px]">TON</span>
+              <span className="text-[#3B82F6] font-bold text-[10px]">{isBuy ? 'TON' : 'TKN'}</span>
             </div>
             <input
               type="text"
@@ -167,140 +262,39 @@ export default function TokenDetail() {
                 if (/^\d*\.?\d*$/.test(val)) setAmount(val);
               }}
               placeholder="0"
-              className="flex-1 h-12 rounded-xl px-4 text-white text-lg font-medium outline-none transition-colors"
-              style={{
-                background: '#0A0E1A',
-                border: '1px solid #1E2A4A',
-                minWidth: 0,
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#3B82F6';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = '#1E2A4A';
-              }}
+              className="flex-1 h-12 rounded-xl px-4 text-white text-lg font-medium outline-none"
+              style={{ background: '#0A0E1A', border: '1px solid #1E2A4A', minWidth: 0 }}
             />
           </div>
         </div>
 
-        {/* You Receive */}
         <div className="mb-5">
-          <label className="block text-sm text-[#94A3B8] mb-2">You Receive</label>
+          <label className="block text-sm text-[#94A3B8] mb-2">You receive (est.)</label>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img
-                src={token.image}
-                alt={token.name}
-                className="w-8 h-8 rounded-full"
-              />
-              <span className="text-white text-lg font-medium">
-                {amount ? (parseFloat(amount) * 124521).toFixed(2) : '0'}
-              </span>
-            </div>
-            <span className="text-[#94A3B8] font-semibold text-sm">{token.ticker}</span>
+            <span className="text-white text-lg font-medium">
+              {isBuy ? fmt(estimate) : estimate.toFixed(4)}
+            </span>
+            <span className="text-[#94A3B8] font-semibold text-sm">
+              {isBuy ? token.symbol : 'TON'}
+            </span>
           </div>
         </div>
 
-        {/* Enter Button */}
+        {status && <p className="text-sm text-center text-[#94A3B8] mb-3">{status}</p>}
+
         <button
-          className="w-full h-12 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:scale-[1.02] active:scale-95"
+          onClick={handleTrade}
+          disabled={token.graduated}
+          className="w-full h-12 rounded-xl font-semibold text-white text-base transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
           style={{
-            background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+            background: isBuy
+              ? 'linear-gradient(135deg, #22C55E, #16A34A)'
+              : 'linear-gradient(135deg, #EF4444, #DC2626)',
             boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)',
           }}
         >
-          ⚡ Enter
+          {!address ? 'Connect wallet' : isBuy ? `⚡ Buy ${token.symbol}` : `Sell ${token.symbol}`}
         </button>
-      </section>
-
-      {/* Price Chart */}
-      <section
-        className="rounded-2xl p-4"
-        style={{
-          background: '#0F1629',
-          border: '1px solid #1E2A4A',
-        }}
-      >
-        <h3 className="text-white font-semibold mb-4">📊 Price Chart</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="time"
-                tick={{ fill: '#64748B', fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: '#64748B', fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                domain={['dataMin - 0.002', 'dataMax + 0.002']}
-                tickFormatter={(v) => v.toFixed(3)}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Area
-                type="monotone"
-                dataKey="price"
-                stroke="#3B82F6"
-                strokeWidth={2}
-                fill="url(#priceGradient)"
-                dot={false}
-                activeDot={{
-                  r: 5,
-                  fill: '#3B82F6',
-                  stroke: '#080B14',
-                  strokeWidth: 2,
-                }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-
-      {/* Last Trades */}
-      <section
-        className="rounded-2xl p-4"
-        style={{
-          background: '#0F1629',
-          border: '1px solid #1E2A4A',
-        }}
-      >
-        <h3 className="text-white font-semibold mb-4">📋 Last Trades</h3>
-
-        {/* Table Header */}
-        <div className="flex items-center mb-3 text-xs text-[#64748B]" style={{ paddingRight: 4 }}>
-          <span className="w-12">Time</span>
-          <span className="w-14">Type</span>
-          <span className="flex-1 text-right">Amount</span>
-          <span className="w-28 text-right">TON</span>
-        </div>
-
-        {/* Table Rows */}
-        <div className="space-y-0">
-          {lastTrades.map((trade, i) => (
-            <div
-              key={i}
-              className="flex items-center py-2.5 text-sm"
-              style={{
-                borderBottom: i < lastTrades.length - 1 ? '1px solid #1E2A4A' : 'none',
-              }}
-            >
-              <span className="w-12 text-[#94A3B8]">{trade.time}</span>
-              <span className="w-14 font-semibold" style={{ color: trade.type === 'BUY' ? '#22C55E' : '#EF4444' }}>
-                {trade.type}
-              </span>
-              <span className="flex-1 text-right text-white">{trade.amount}</span>
-              <span className="w-28 text-right font-mono text-xs text-white">{trade.price}</span>
-            </div>
-          ))}
-        </div>
       </section>
     </div>
   );

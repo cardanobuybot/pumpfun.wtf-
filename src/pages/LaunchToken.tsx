@@ -1,18 +1,83 @@
 import { useState, useRef } from 'react';
 import { Upload, Globe, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Address, toNano } from '@ton/core';
+import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
+import {
+  buildCreateTokenPayload,
+  predictTokenAddress,
+} from '../contracts/launchpad';
+import { FACTORY_ADDRESS, CREATE_TOKEN_VALUE } from '../contracts/config';
 
 export default function LaunchToken() {
+  const navigate = useNavigate();
+  const [tonConnectUI] = useTonConnectUI();
+  const address = useTonAddress();
   const [image, setImage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
     ticker: '',
     description: '',
+    imageUrl: '',
     website: '',
     telegram: '',
     discord: '',
     twitter: '',
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const chooseImage = () => {
+    if (form.imageUrl.startsWith('http')) return form.imageUrl;
+    if (image && image.length < 8000) return image; // small data URL only
+    return `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(form.ticker || 'token')}`;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!address) {
+      tonConnectUI.openModal();
+      return;
+    }
+    if (!form.name.trim() || !form.ticker.trim()) {
+      setStatus('Name and ticker are required.');
+      return;
+    }
+    setSubmitting(true);
+    setStatus('Preparing transaction…');
+    try {
+      const meta = {
+        name: form.name.trim(),
+        symbol: form.ticker.trim(),
+        description: form.description.trim(),
+        image: chooseImage(),
+      };
+      const creator = Address.parse(address);
+      const predicted = await predictTokenAddress(creator, meta);
+      const payload = buildCreateTokenPayload(meta);
+
+      setStatus('Confirm in your wallet…');
+      await tonConnectUI.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 300,
+        messages: [
+          {
+            address: FACTORY_ADDRESS,
+            amount: toNano(CREATE_TOKEN_VALUE).toString(),
+            payload,
+          },
+        ],
+      });
+
+      setStatus('🎉 Token created! Opening it…');
+      const friendly = predicted.toString({ testOnly: true, bounceable: true });
+      setTimeout(() => navigate(`/token/${friendly}`), 4000);
+    } catch (err) {
+      setStatus('Failed: ' + ((err as Error)?.message ?? String(err)));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
@@ -45,7 +110,7 @@ export default function LaunchToken() {
     <div className="py-5 pb-24">
       <h1 className="text-2xl font-bold text-white mb-6">🚀 Launch Token</h1>
 
-      <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+      <form className="space-y-5" onSubmit={handleSubmit}>
         {/* Image Upload */}
         <div>
           <label className={labelStyle}>
@@ -81,8 +146,18 @@ export default function LaunchToken() {
             )}
           </button>
           <p className="text-xs text-[#64748B] mt-2">
-            Recommended: 512x512px, JPG or PNG, max 2MB
+            Tip: paste an image URL below for best results (uploaded files are stored on-chain only if tiny).
           </p>
+          <input
+            type="text"
+            value={form.imageUrl}
+            onChange={(e) => handleChange('imageUrl', e.target.value)}
+            placeholder="https://.../image.png (recommended)"
+            className="w-full h-11 rounded-xl px-4 text-white text-sm outline-none transition-colors mt-2"
+            style={inputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#3B82F6'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#1E2A4A'; }}
+          />
         </div>
 
         {/* Name */}
@@ -217,16 +292,22 @@ export default function LaunchToken() {
           </div>
         </div>
 
+        {/* Status */}
+        {status && (
+          <p className="text-sm text-center text-[#94A3B8]">{status}</p>
+        )}
+
         {/* Submit Button */}
         <button
           type="submit"
-          className="w-full h-12 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:scale-[1.02] mt-6"
+          disabled={submitting}
+          className="w-full h-12 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:scale-[1.02] mt-6 disabled:opacity-60"
           style={{
             background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
             boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)',
           }}
         >
-          🚀 Create Token
+          {submitting ? 'Creating…' : address ? '🚀 Create Token (0.1 TON)' : 'Connect wallet to launch'}
         </button>
       </form>
     </div>
