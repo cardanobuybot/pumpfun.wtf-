@@ -26,6 +26,7 @@ export type OnchainToken = {
     graduated: boolean;
     createdAt: number; // unix seconds the curve was deployed (0 if unknown)
     lastActivity: number; // unix seconds of last on-chain activity (0 if unknown)
+    txCount: number; // number of recent on-chain trades (capped, 0 if unknown)
 };
 
 async function runGet(address: Address, method: string, args: TupleItem[] = []) {
@@ -74,9 +75,10 @@ export async function fetchTokenInfo(id: number, address: Address): Promise<Onch
     // Real age / last-activity come from the tonapi index; best-effort so a
     // failure here never blocks rendering the token.
     const addrStr = address.toString({ testOnly: true, bounceable: true });
-    const [createdAt, lastActivity] = await Promise.all([
+    const [createdAt, lastActivity, txCount] = await Promise.all([
         fetchCreatedAt(addrStr).catch(() => 0),
         fetchLastActivity(addrStr).catch(() => 0),
+        fetchTrades(addrStr, 50).then((t) => t.length).catch(() => 0),
     ]);
 
     return {
@@ -95,6 +97,7 @@ export async function fetchTokenInfo(id: number, address: Address): Promise<Onch
         graduated,
         createdAt,
         lastActivity,
+        txCount,
     };
 }
 

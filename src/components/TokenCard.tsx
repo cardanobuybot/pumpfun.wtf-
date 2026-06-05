@@ -123,11 +123,27 @@ export default function TokenCard({ token, isKing = false }: TokenCardProps) {
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-1 text-[10px] text-[#475569] flex-shrink-0">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            <span>{token.timeAgo ? `${token.timeAgo} ago · ` : ''}{token.volume24h} vol</span>
+          <div className="flex items-center gap-2 text-[10px] font-medium text-white flex-shrink-0">
+            {token.timeAgo && (
+              <span className="flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                {token.timeAgo}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+              {token.volume24h}
+            </span>
+            <span className="flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 17v-2a4 4 0 0 1 4-4h12"/><polyline points="16 7 20 11 16 15"/>
+              </svg>
+              {token.txs} txs
+            </span>
           </div>
         </div>
       </div>

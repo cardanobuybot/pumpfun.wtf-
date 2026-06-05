@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Flame, Sparkles, TrendingUp, CheckCircle2, Search } from 'lucide-react';
+import { RefreshCw, Sprout, TrendingUp, BarChart3, Flag, Search } from 'lucide-react';
 import TokenCard from '../components/TokenCard';
 import ProgressBar from '../components/ProgressBar';
 import type { Token } from '../data/tokens';
@@ -25,7 +25,7 @@ function toCard(t: OnchainToken): Token {
     progress: Number(t.progress.toFixed(2)),
     marketCap: `${fmt(t.marketCapTon)} TON`,
     timeAgo: timeAgo(t.createdAt),
-    txs: 0,
+    txs: t.txCount,
     volume24h: `${fmt(t.realTon)} TON`,
     kingOfHillProgress: Number(t.progress.toFixed(2)),
     image: t.image || `https://api.dicebear.com/7.x/shapes/svg?seed=${t.symbol}`,
@@ -34,11 +34,11 @@ function toCard(t: OnchainToken): Token {
 
 type SortKey = 'bump' | 'new' | 'mcap' | 'complete';
 
-const SORTS: { key: SortKey; label: string; Icon: typeof Flame }[] = [
-  { key: 'bump', label: 'Last Bump', Icon: Flame },
-  { key: 'new', label: 'New', Icon: Sparkles },
-  { key: 'mcap', label: 'Mcap', Icon: TrendingUp },
-  { key: 'complete', label: 'Complete', Icon: CheckCircle2 },
+const SORTS: { key: SortKey; label: string; Icon: typeof Sprout; color: string }[] = [
+  { key: 'bump', label: 'Last Bump', Icon: TrendingUp, color: '#22d3ee' },
+  { key: 'new', label: 'New', Icon: Sprout, color: '#22c55e' },
+  { key: 'mcap', label: 'Mcap', Icon: BarChart3, color: '#f59e0b' },
+  { key: 'complete', label: 'Complete', Icon: Flag, color: '#ef4444' },
 ];
 
 function sortTokens(list: OnchainToken[], key: SortKey): OnchainToken[] {
@@ -182,21 +182,22 @@ export default function Home() {
       </div>
 
       {/* Filter / sort buttons */}
-      <div className="grid grid-cols-4 gap-1.5">
-        {SORTS.map(({ key, label, Icon }) => {
+      <div className="grid grid-cols-4 gap-2">
+        {SORTS.map(({ key, label, Icon, color }) => {
           const active = sort === key;
           return (
             <button
               key={key}
               onClick={() => setSort(key)}
-              className="h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-semibold transition-all"
+              className="h-14 rounded-xl flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-all"
               style={{
                 background: active ? 'linear-gradient(135deg, #3B82F6, #2563EB)' : '#111827',
                 color: active ? '#FFFFFF' : '#94A3B8',
-                border: active ? '1px solid #3B82F6' : '1px solid #1e293b',
+                border: active ? `1px solid ${color}` : '1px solid #1e293b',
+                boxShadow: active ? `0 0 16px ${color}55` : 'none',
               }}
             >
-              <Icon size={13} />
+              <Icon size={20} color={color} strokeWidth={2.4} />
               <span className="truncate">{label}</span>
             </button>
           );
