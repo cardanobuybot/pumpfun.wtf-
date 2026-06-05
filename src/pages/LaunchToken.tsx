@@ -12,7 +12,7 @@ import { uploadImageToIPFS, ipfsConfigured } from '../contracts/ipfs';
 
 // Token image upload limits. Static images only (no animation), to keep tokens
 // light and consistent. GIF is excluded on purpose so uploads can't animate.
-const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg'];
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 
 export default function LaunchToken() {
@@ -108,7 +108,7 @@ export default function LaunchToken() {
     // Validate format + size before previewing or uploading.
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       setImage(null);
-      setUploadError('Unsupported format. Use PNG, JPG or WebP (no GIF / animation).');
+      setUploadError('Unsupported format. Use PNG or JPG (no GIF / animation).');
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
@@ -160,7 +160,7 @@ export default function LaunchToken() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept="image/png,image/jpeg"
             onChange={handleImageChange}
             className="hidden"
           />
@@ -203,7 +203,7 @@ export default function LaunchToken() {
           )}
 
           <p className="text-xs text-[#64748B] mt-2">
-            PNG, JPG or WebP · static (no animation) · up to 2 MB · square recommended.
+            PNG or JPG · static (no animation) · up to 2 MB · square recommended.
           </p>
           <p className="text-xs text-[#64748B] mt-1">
             {ipfsConfigured
