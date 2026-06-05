@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Flame, Sparkles, TrendingUp, CheckCircle2, Search } from 'lucide-react';
 import TokenCard from '../components/TokenCard';
 import ProgressBar from '../components/ProgressBar';
 import type { Token } from '../data/tokens';
 import { listTokens } from '../contracts/launchpad';
 import type { OnchainToken } from '../contracts/launchpad';
+import { timeAgo } from '../lib/utils';
 
 function fmt(n: number): string {
   if (!isFinite(n)) return '0';
@@ -23,7 +24,7 @@ function toCard(t: OnchainToken): Token {
     description: t.description || 'No description',
     progress: Number(t.progress.toFixed(2)),
     marketCap: `${fmt(t.marketCapTon)} TON`,
-    timeAgo: '',
+    timeAgo: timeAgo(t.createdAt),
     txs: 0,
     volume24h: `${fmt(t.realTon)} TON`,
     kingOfHillProgress: Number(t.progress.toFixed(2)),
@@ -31,11 +32,37 @@ function toCard(t: OnchainToken): Token {
   };
 }
 
+type SortKey = 'bump' | 'new' | 'mcap' | 'complete';
+
+const SORTS: { key: SortKey; label: string; Icon: typeof Flame }[] = [
+  { key: 'bump', label: 'Last Bump', Icon: Flame },
+  { key: 'new', label: 'New', Icon: Sparkles },
+  { key: 'mcap', label: 'Mcap', Icon: TrendingUp },
+  { key: 'complete', label: 'Complete', Icon: CheckCircle2 },
+];
+
+function sortTokens(list: OnchainToken[], key: SortKey): OnchainToken[] {
+  const arr = [...list];
+  switch (key) {
+    case 'bump':
+      return arr.sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+    case 'new':
+      return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    case 'complete':
+      return arr.sort((a, b) => b.progress - a.progress);
+    case 'mcap':
+    default:
+      return arr.sort((a, b) => b.marketCapTon - a.marketCapTon);
+  }
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const [tokens, setTokens] = useState<OnchainToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>('bump');
+  const [query, setQuery] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -54,14 +81,33 @@ export default function Home() {
     load();
   }, []);
 
-  const sorted = [...tokens].sort((a, b) => b.marketCapTon - a.marketCapTon);
-  const king = sorted[0];
+  // King is always the highest market-cap token (independent of the active
+  // filter), shown only when not actively searching.
+  const king = useMemo(
+    () => [...tokens].sort((a, b) => b.marketCapTon - a.marketCapTon)[0],
+    [tokens],
+  );
   const kingCard = king ? toCard(king) : null;
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? tokens.filter(
+          (t) =>
+            t.symbol.toLowerCase().includes(q) ||
+            t.name.toLowerCase().includes(q) ||
+            t.address.toLowerCase().includes(q),
+        )
+      : tokens;
+    return sortTokens(filtered, sort);
+  }, [tokens, query, sort]);
+
+  const searching = query.trim().length > 0;
 
   return (
     <div className="space-y-3 py-3">
       {/* King of the Hill */}
-      {kingCard && (
+      {kingCard && !searching && (
         <section>
           <h2 className="text-center text-lg font-black tracking-wider mb-2 text-white">
             👑 KING OF THE HILL
@@ -115,9 +161,53 @@ export default function Home() {
         🚀 Launch Token
       </button>
 
+      {/* Search bar */}
+      <div
+        className="flex items-center gap-2 px-3 h-11 rounded-xl"
+        style={{ background: '#0d111e', border: '1px solid #1e293b' }}
+      >
+        <Search size={16} className="text-[#64748B] flex-shrink-0" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name, ticker or address…"
+          className="flex-1 bg-transparent text-white text-sm outline-none placeholder-[#64748B] min-w-0"
+        />
+        {query && (
+          <button onClick={() => setQuery('')} className="text-[#64748B] hover:text-white text-xs flex-shrink-0">
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Filter / sort buttons */}
+      <div className="grid grid-cols-4 gap-1.5">
+        {SORTS.map(({ key, label, Icon }) => {
+          const active = sort === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setSort(key)}
+              className="h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-semibold transition-all"
+              style={{
+                background: active ? 'linear-gradient(135deg, #3B82F6, #2563EB)' : '#111827',
+                color: active ? '#FFFFFF' : '#94A3B8',
+                border: active ? '1px solid #3B82F6' : '1px solid #1e293b',
+              }}
+            >
+              <Icon size={13} />
+              <span className="truncate">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Heading + refresh */}
       <div className="flex items-center justify-between">
-        <h3 className="text-white font-semibold text-sm">All tokens {tokens.length > 0 && `(${tokens.length})`}</h3>
+        <h3 className="text-white font-semibold text-sm">
+          {searching ? `Results (${visible.length})` : `All tokens ${tokens.length > 0 ? `(${tokens.length})` : ''}`}
+        </h3>
         <button onClick={load} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#1e293b]">
           <RefreshCw size={15} className={`text-[#64748B] ${loading ? 'animate-spin' : ''}`} />
         </button>
@@ -133,10 +223,15 @@ export default function Home() {
         </div>
       )}
 
+      {/* No search results */}
+      {!loading && !error && tokens.length > 0 && visible.length === 0 && (
+        <p className="text-center text-[#64748B] py-10 text-sm">No tokens match “{query}”.</p>
+      )}
+
       {/* Token Grid */}
-      {!loading && !error && tokens.length > 0 && (
+      {!loading && !error && visible.length > 0 && (
         <section className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-          {sorted.map((t) => (
+          {visible.map((t) => (
             <TokenCard key={t.address} token={toCard(t)} />
           ))}
         </section>

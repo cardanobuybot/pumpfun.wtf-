@@ -5,6 +5,7 @@ import { FACTORY_ADDRESS, OP, TOKEN_DECIMALS, NETWORK } from './config';
 import { buildTokenContent, parseTokenContent } from './metadata';
 import type { TokenMetadata } from './metadata';
 import { ipfsToHttp } from './ipfs';
+import { fetchCreatedAt, fetchLastActivity } from './tonapi';
 
 const FACTORY = Address.parse(FACTORY_ADDRESS);
 const UNIT = 10 ** TOKEN_DECIMALS;
@@ -23,6 +24,8 @@ export type OnchainToken = {
     marketCapTon: number;
     progress: number; // % toward graduation
     graduated: boolean;
+    createdAt: number; // unix seconds the curve was deployed (0 if unknown)
+    lastActivity: number; // unix seconds of last on-chain activity (0 if unknown)
 };
 
 async function runGet(address: Address, method: string, args: TupleItem[] = []) {
@@ -68,9 +71,17 @@ export async function fetchTokenInfo(id: number, address: Address): Promise<Onch
     const marketCapTon = priceTon * totalSupplyWhole;
     const progress = graduationTon > 0n ? (realTon / Number(fromNano(graduationTon))) * 100 : 0;
 
+    // Real age / last-activity come from the tonapi index; best-effort so a
+    // failure here never blocks rendering the token.
+    const addrStr = address.toString({ testOnly: true, bounceable: true });
+    const [createdAt, lastActivity] = await Promise.all([
+        fetchCreatedAt(addrStr).catch(() => 0),
+        fetchLastActivity(addrStr).catch(() => 0),
+    ]);
+
     return {
         id,
-        address: address.toString({ testOnly: true, bounceable: true }),
+        address: addrStr,
         name: meta.name || 'Unknown',
         symbol: meta.symbol || '???',
         description: meta.description || '',
@@ -82,6 +93,8 @@ export async function fetchTokenInfo(id: number, address: Address): Promise<Onch
         marketCapTon,
         progress: Math.min(progress, 100),
         graduated,
+        createdAt,
+        lastActivity,
     };
 }
 
@@ -91,16 +104,26 @@ export async function listTokens(limit = 40): Promise<OnchainToken[]> {
     const ids: number[] = [];
     for (let i = tokenCount - 1; i >= start; i--) ids.push(i);
 
-    const out: OnchainToken[] = [];
-    for (const id of ids) {
-        try {
-            const addr = await fetchTokenAddrById(id);
-            out.push(await fetchTokenInfo(id, addr));
-        } catch (e) {
-            console.warn('failed to load token', id, e);
+    // Load tokens with bounded concurrency: fast for long lists, but capped so we
+    // don't burst the RPC / tonapi. Cached fields (see tonapi.ts) keep repeat
+    // loads cheap. Preserve newest-first ordering by id.
+    const CONCURRENCY = 4;
+    const results = new Map<number, OnchainToken>();
+    let cursor = 0;
+    const worker = async () => {
+        while (cursor < ids.length) {
+            const id = ids[cursor++];
+            try {
+                const addr = await fetchTokenAddrById(id);
+                results.set(id, await fetchTokenInfo(id, addr));
+            } catch (e) {
+                console.warn('failed to load token', id, e);
+            }
         }
-    }
-    return out;
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, worker));
+
+    return ids.map((id) => results.get(id)).filter((t): t is OnchainToken => !!t);
 }
 
 export async function fetchTokenByAddress(address: string): Promise<OnchainToken> {

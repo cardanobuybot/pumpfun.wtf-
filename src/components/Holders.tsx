@@ -37,12 +37,14 @@ function holdersFromTrades(trades: Trade[]): Holder[] {
 export default function Holders({
   tokenAddress,
   totalSupply,
+  curveReserve,
   trades,
   symbol,
   dev,
 }: {
   tokenAddress: string;
-  totalSupply: number;
+  totalSupply: number; // tokens already minted to buyers
+  curveReserve: number; // unsold tokens still held by the bonding curve
   trades: Trade[];
   symbol: string;
   dev?: string | null;
@@ -73,7 +75,22 @@ export default function Holders({
     return <p className="text-sm text-center text-[#64748B] py-6">Loading holders…</p>;
   }
 
-  if (holders.length === 0) {
+  // Tokens are lazily minted to buyers; the unsold remainder lives in the
+  // bonding curve (it isn't a real jetton holder, so we add it synthetically).
+  // The denominator is the full planned supply = minted + curve reserve, so the
+  // curve shows as the majority holder until the token graduates.
+  const buyers = holders.filter((h) => !sameAddr(h.owner, tokenAddress));
+  const mintedSum = buyers.reduce((s, h) => s + h.amount, 0);
+  const mintedTotal = !approx && totalSupply > 0 ? totalSupply : mintedSum;
+  const reserve = curveReserve > 0 ? curveReserve : 0;
+  const denom = mintedTotal + reserve;
+
+  const display: Holder[] = reserve > 0
+    ? [{ owner: tokenAddress, amount: reserve, name: 'Bonding Curve' }, ...buyers]
+    : [...buyers];
+  display.sort((a, b) => b.amount - a.amount);
+
+  if (display.length === 0) {
     return (
       <p className="text-sm text-center text-[#64748B] py-6">
         No holders yet. Be the first to buy!
@@ -81,36 +98,37 @@ export default function Holders({
     );
   }
 
-  // % of total supply when we have it (real tonapi data); otherwise % among the
-  // holders we could derive from trades.
-  const denom = !approx && totalSupply > 0
-    ? totalSupply
-    : holders.reduce((s, h) => s + h.amount, 0);
+  const buyerCount = buyers.length;
 
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-[#64748B] mb-1">
         {approx
-          ? `Estimated from recent trades · ${holders.length} holder${holders.length === 1 ? '' : 's'}`
-          : `${holders.length} holder${holders.length === 1 ? '' : 's'} · share of total supply`}
+          ? `Estimated from recent trades · ${buyerCount} holder${buyerCount === 1 ? '' : 's'}`
+          : `${buyerCount} holder${buyerCount === 1 ? '' : 's'} · share of total supply`}
       </p>
-      {holders.map((h, i) => {
-        const isDev = sameAddr(h.owner, dev);
+      {display.map((h, i) => {
+        const isCurve = sameAddr(h.owner, tokenAddress);
+        const isDev = !isCurve && sameAddr(h.owner, dev);
         const pct = denom > 0 ? (h.amount / denom) * 100 : 0;
         return (
           <div
             key={h.owner}
             className="rounded-lg px-3 py-2"
             style={
-              isDev
-                ? { background: 'rgba(34,197,94,0.12)', boxShadow: '0 0 0 1px #22C55E' }
-                : { background: '#0A0E1A' }
+              isCurve
+                ? { background: 'rgba(59,130,246,0.12)', boxShadow: '0 0 0 1px #3B82F6' }
+                : isDev
+                  ? { background: 'rgba(34,197,94,0.12)', boxShadow: '0 0 0 1px #22C55E' }
+                  : { background: '#0A0E1A' }
             }
           >
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-xs text-[#64748B] w-5 flex-shrink-0">#{i + 1}</span>
               <span className="text-xs text-[#94A3B8] truncate" title={h.owner}>
-                {h.name ? (
+                {isCurve ? (
+                  <span className="text-[#E2E8F0] font-medium">🪙 Bonding Curve</span>
+                ) : h.name ? (
                   <span className="text-[#E2E8F0] font-medium">{h.name}</span>
                 ) : (
                   <span className="font-mono">
@@ -118,6 +136,11 @@ export default function Holders({
                   </span>
                 )}
               </span>
+              {isCurve && (
+                <span className="text-[10px] font-bold uppercase tracking-wide bg-[#3B82F6] text-white rounded px-1.5 py-0.5 leading-none flex-shrink-0">
+                  CURVE
+                </span>
+              )}
               {isDev && (
                 <span className="text-[10px] font-bold uppercase tracking-wide bg-[#22C55E] text-white rounded px-1.5 py-0.5 leading-none flex-shrink-0">
                   DEV
@@ -139,7 +162,7 @@ export default function Holders({
                   className="h-full rounded-full"
                   style={{
                     width: `${Math.min(pct, 100)}%`,
-                    background: isDev ? '#22C55E' : '#3B82F6',
+                    background: isCurve ? '#3B82F6' : isDev ? '#22C55E' : '#60A5FA',
                   }}
                 />
               </div>

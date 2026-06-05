@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ExternalLink, RefreshCw, Clock } from 'lucide-react';
 import { Address, toNano } from '@ton/core';
 import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 import ProgressBar from '../components/ProgressBar';
@@ -21,6 +21,7 @@ import {
 } from '../contracts/launchpad';
 import type { OnchainToken, Trade } from '../contracts/launchpad';
 import { SELL_GAS, tonscanBase } from '../contracts/config';
+import { timeAgo } from '../lib/utils';
 
 function fmt(n: number, digits = 2): string {
   if (!isFinite(n)) return '0';
@@ -200,6 +201,11 @@ export default function TokenDetail() {
             >
               {token.address.slice(0, 6)}…{token.address.slice(-6)} <ExternalLink size={11} />
             </a>
+            {token.createdAt > 0 && (
+              <p className="text-xs text-[#64748B] mb-1 flex items-center gap-1">
+                <Clock size={11} /> Created {timeAgo(token.createdAt)} ago
+              </p>
+            )}
             <p className="text-sm text-[#94A3B8]">{token.description}</p>
           </div>
         </div>
@@ -239,9 +245,9 @@ export default function TokenDetail() {
             key={key}
             onClick={() => setTab(key)}
             className={`h-9 rounded-lg text-sm font-semibold transition-colors ${
-              tab === key ? 'text-white' : 'text-[#64748B] hover:text-[#94A3B8]'
+              tab === key ? 'text-white' : 'text-[#94A3B8] hover:text-white'
             }`}
-            style={{ background: tab === key ? '#1E2A4A' : 'transparent' }}
+            style={{ background: tab === key ? '#1E2A4A' : '#3D3D3D' }}
           >
             {label}
           </button>
@@ -358,6 +364,7 @@ export default function TokenDetail() {
           <Holders
             tokenAddress={token.address}
             totalSupply={token.totalSupply}
+            curveReserve={token.tokenReserve}
             trades={trades}
             symbol={token.symbol}
             dev={dev}

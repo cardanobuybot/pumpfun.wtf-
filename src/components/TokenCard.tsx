@@ -127,7 +127,7 @@ export default function TokenCard({ token, isKing = false }: TokenCardProps) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
-            <span>{token.timeAgo} · {token.txs} txs · {token.volume24h} vol</span>
+            <span>{token.timeAgo ? `${token.timeAgo} ago · ` : ''}{token.volume24h} vol</span>
           </div>
         </div>
       </div>
