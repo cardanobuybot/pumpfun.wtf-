@@ -209,7 +209,6 @@ export default function Home() {
               style={{
                 background: active ? 'linear-gradient(135deg, #3B82F6, #2563EB)' : '#111827',
                 color: active ? '#FFFFFF' : '#94A3B8',
-                border: active ? `1px solid ${color}` : '1px solid #1e293b',
                 boxShadow: active ? `0 0 16px ${color}55` : 'none',
               }}
             >
