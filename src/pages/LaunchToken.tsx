@@ -10,6 +10,11 @@ import {
 import { FACTORY_ADDRESS, CREATE_TOKEN_VALUE } from '../contracts/config';
 import { uploadImageToIPFS, ipfsConfigured } from '../contracts/ipfs';
 
+// Token image upload limits. Static images only (no animation), to keep tokens
+// light and consistent. GIF is excluded on purpose so uploads can't animate.
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
+
 export default function LaunchToken() {
   const navigate = useNavigate();
   const [tonConnectUI] = useTonConnectUI();
@@ -94,15 +99,29 @@ export default function LaunchToken() {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Reset the input so picking the same file again re-triggers onChange.
+    e.target.value = '';
     if (!file) return;
+
+    setUploadedUrl(null);
+
+    // Validate format + size before previewing or uploading.
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setImage(null);
+      setUploadError('Unsupported format. Use PNG, JPG or WebP (no GIF / animation).');
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImage(null);
+      setUploadError(`Image is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max is 2 MB.`);
+      return;
+    }
+    setUploadError(null);
 
     // local preview immediately
     const reader = new FileReader();
     reader.onloadend = () => setImage(reader.result as string);
     reader.readAsDataURL(file);
-
-    setUploadedUrl(null);
-    setUploadError(null);
 
     if (!ipfsConfigured) {
       setUploadError('Upload not configured — paste an image URL below instead.');
@@ -141,7 +160,7 @@ export default function LaunchToken() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp"
             onChange={handleImageChange}
             className="hidden"
           />
@@ -184,8 +203,11 @@ export default function LaunchToken() {
           )}
 
           <p className="text-xs text-[#64748B] mt-2">
+            PNG, JPG or WebP · static (no animation) · up to 2 MB · square recommended.
+          </p>
+          <p className="text-xs text-[#64748B] mt-1">
             {ipfsConfigured
-              ? 'Upload an image — it’s pinned to IPFS. Or paste a direct URL below.'
+              ? 'Pinned to IPFS on upload. Or paste a direct URL below.'
               : 'Paste a direct image URL below (file upload isn’t configured).'}
           </p>
           <input
