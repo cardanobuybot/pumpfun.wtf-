@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, RefreshCw, Clock } from 'lucide-react';
+import { ArrowLeft, ExternalLink, RefreshCw, Clock, Eye, ArrowLeftRight, Users, MessageCircle } from 'lucide-react';
 import { Address, toNano } from '@ton/core';
 import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 import ProgressBar from '../components/ProgressBar';
@@ -234,24 +234,31 @@ export default function TokenDetail() {
       </section>
 
       {/* Tab bar */}
-      <div className="grid grid-cols-4 gap-1 rounded-xl p-1" style={card}>
+      <div className="grid grid-cols-4 gap-2">
         {([
-          ['overview', 'Overview'],
-          ['trades', 'Trades'],
-          ['holders', 'Holders'],
-          ['chat', 'Chat'],
-        ] as const).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`h-9 rounded-lg text-sm font-semibold transition-colors ${
-              tab === key ? 'text-white' : 'text-[#94A3B8] hover:text-white'
-            }`}
-            style={{ background: tab === key ? '#1E2A4A' : '#3D3D3D' }}
-          >
-            {label}
-          </button>
-        ))}
+          ['overview', 'Overview', Eye, '#22d3ee'],
+          ['trades', 'Trades', ArrowLeftRight, '#22c55e'],
+          ['holders', 'Holders', Users, '#f59e0b'],
+          ['chat', 'Chat', MessageCircle, '#a855f7'],
+        ] as const).map(([key, label, Icon, color]) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className="h-14 rounded-xl flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-all"
+              style={{
+                background: active ? 'linear-gradient(135deg, #3B82F6, #2563EB)' : '#111827',
+                color: active ? '#FFFFFF' : '#94A3B8',
+                border: active ? `1px solid ${color}` : '1px solid #1e293b',
+                boxShadow: active ? `0 0 16px ${color}55` : 'none',
+              }}
+            >
+              <Icon size={20} color={color} strokeWidth={2.4} />
+              <span className="truncate">{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ===== Overview tab ===== */}
