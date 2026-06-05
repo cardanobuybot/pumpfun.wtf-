@@ -4,27 +4,17 @@ import type { OnchainToken } from '../contracts/launchpad';
 import { analyzeToken, signalsToPrompt, type RugSignals, type Flag } from '../contracts/rugcheck';
 import { cocoonChat, CocoonNotConfigured } from '../contracts/cocoon';
 
-// Stylized Cocoon mark — a silk chrysalis wrapped in threads.
+// Official Cocoon mark (downloaded from cocoon.org).
 function CocoonLogo({ size = 22 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id="cocoonG" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#5EEAD4" />
-          <stop offset="1" stopColor="#6366F1" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M16 2c5 0 8 5 8 12s-3 16-8 16-8-9-8-16S11 2 16 2z"
-        fill="url(#cocoonG)"
-      />
-      <g stroke="#0A0E1A" strokeWidth="1.4" strokeLinecap="round" opacity="0.55">
-        <path d="M9 11l14-3" />
-        <path d="M8.5 16l15-2" />
-        <path d="M9 21l14-2" />
-        <path d="M11 26l10-3" />
-      </g>
-    </svg>
+    <img
+      src="/img/cocoon-logo.png"
+      alt="Cocoon"
+      width={size}
+      height={size}
+      className="object-contain flex-shrink-0"
+      style={{ width: size, height: size }}
+    />
   );
 }
 
@@ -129,8 +119,8 @@ export default function RugCheck({ token, dev }: { token: OnchainToken; dev: str
         onClick={run}
         className="w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 font-bold text-white text-sm transition-all duration-200 hover:scale-[1.02]"
         style={{
-          background: 'linear-gradient(135deg, #134E4A 0%, #0F766E 35%, #4F46E5 100%)',
-          boxShadow: '0 4px 22px rgba(79, 70, 229, 0.35)',
+          background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+          boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)',
         }}
       >
         <CocoonLogo size={22} />
@@ -152,7 +142,7 @@ export default function RugCheck({ token, dev }: { token: OnchainToken; dev: str
             {/* header */}
             <div
               className="flex items-center gap-2.5 px-4 py-3 sticky top-0"
-              style={{ background: 'linear-gradient(135deg, #0F766E, #4F46E5)' }}
+              style={{ background: 'linear-gradient(135deg, #3B82F6, #2563EB)' }}
             >
               <CocoonLogo size={22} />
               <div className="leading-tight">
@@ -258,7 +248,7 @@ export default function RugCheck({ token, dev }: { token: OnchainToken; dev: str
                         onClick={ask}
                         disabled={asking || !question.trim()}
                         className="h-10 px-4 rounded-xl font-semibold text-white text-sm flex-shrink-0 disabled:opacity-40"
-                        style={{ background: 'linear-gradient(135deg, #0F766E, #4F46E5)' }}
+                        style={{ background: 'linear-gradient(135deg, #3B82F6, #2563EB)' }}
                       >
                         Ask
                       </button>
