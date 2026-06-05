@@ -106,6 +106,14 @@ export default function TokenDetail() {
     };
   }, [id, amount, isBuy]);
 
+  // Set the sell amount to a percentage of the user's token balance. The live
+  // "you receive" estimate recalculates automatically when `amount` changes.
+  const setSellPct = (p: number) => {
+    if (balance <= 0) return;
+    // 100% sells the exact balance; partials trim to 6 dp to avoid long floats.
+    setAmount(p >= 1 ? String(balance) : String(Number((balance * p).toFixed(6))));
+  };
+
   const handleTrade = async () => {
     if (!id) return;
     if (!address) {
@@ -326,6 +334,24 @@ export default function TokenDetail() {
               style={{ background: '#0A0E1A', border: '1px solid #1E2A4A', minWidth: 0 }}
             />
           </div>
+
+          {/* Quick sell amounts — % of the user's token balance */}
+          {!isBuy && (
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              {[0.25, 0.5, 0.75, 1].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  disabled={balance <= 0}
+                  onClick={() => setSellPct(p)}
+                  className="h-9 rounded-lg text-xs font-semibold text-[#94A3B8] hover:text-white transition-colors disabled:opacity-40"
+                  style={{ background: '#0A0E1A', border: '1px solid #1E2A4A' }}
+                >
+                  {p === 1 ? 'MAX' : `${p * 100}%`}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mb-5">
