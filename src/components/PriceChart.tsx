@@ -81,7 +81,7 @@ export default function PriceChart({ trades, currentPrice }: Props) {
               fontSize: 12,
             }}
             labelStyle={{ color: '#94A3B8' }}
-            formatter={(v: number) => [`${v.toExponential(3)} TON`, 'Price']}
+            formatter={(v: number) => [`${v.toExponential(3)} GRAM`, 'Price']}
           />
           <Area
             type="monotone"

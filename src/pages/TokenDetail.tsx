@@ -217,11 +217,11 @@ export default function TokenDetail() {
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-lg py-2" style={{ background: '#0A0E1A' }}>
             <p className="text-[10px] text-[#64748B]">Market cap</p>
-            <p className="text-sm text-white font-semibold">{fmt(token.marketCapTon)} TON</p>
+            <p className="text-sm text-white font-semibold">{fmt(token.marketCapTon)} GRAM</p>
           </div>
           <div className="rounded-lg py-2" style={{ background: '#0A0E1A' }}>
             <p className="text-[10px] text-[#64748B]">Raised</p>
-            <p className="text-sm text-white font-semibold">{fmt(token.realTon)} TON</p>
+            <p className="text-sm text-white font-semibold">{fmt(token.realTon)} GRAM</p>
           </div>
           <div className="rounded-lg py-2" style={{ background: '#0A0E1A' }}>
             <p className="text-[10px] text-[#64748B]">Price</p>
@@ -261,7 +261,7 @@ export default function TokenDetail() {
       <section className="rounded-2xl p-4" style={card}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-white">Price</h3>
-          <span className="text-xs text-[#64748B]">{token.priceTon.toExponential(2)} TON</span>
+          <span className="text-xs text-[#64748B]">{token.priceTon.toExponential(2)} GRAM</span>
         </div>
         <PriceChart trades={trades} currentPrice={token.priceTon} />
       </section>
@@ -288,7 +288,7 @@ export default function TokenDetail() {
         <div className="mb-4">
           <div className="flex justify-between mb-2">
             <label className="text-sm text-[#94A3B8]">
-              Amount ({isBuy ? 'TON' : token.symbol})
+              Amount ({isBuy ? 'GRAM' : token.symbol})
             </label>
             {!isBuy && (
               <button className="text-xs text-[#3B82F6]" onClick={() => setAmount(String(balance))}>
@@ -301,7 +301,7 @@ export default function TokenDetail() {
               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
               style={{ background: '#1E2A4A' }}
             >
-              <span className="text-[#3B82F6] font-bold text-[10px]">{isBuy ? 'TON' : 'TKN'}</span>
+              <span className="text-[#3B82F6] font-bold text-[10px]">{isBuy ? 'GRAM' : 'TKN'}</span>
             </div>
             <input
               type="text"
@@ -325,7 +325,7 @@ export default function TokenDetail() {
               {isBuy ? fmt(estimate) : estimate.toFixed(4)}
             </span>
             <span className="text-[#94A3B8] font-semibold text-sm">
-              {isBuy ? token.symbol : 'TON'}
+              {isBuy ? token.symbol : 'GRAM'}
             </span>
           </div>
         </div>

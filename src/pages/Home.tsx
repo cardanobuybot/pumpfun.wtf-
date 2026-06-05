@@ -23,10 +23,10 @@ function toCard(t: OnchainToken): Token {
     shortId: `${t.address.slice(0, 4)}..${t.address.slice(-4)}`,
     description: t.description || 'No description',
     progress: Number(t.progress.toFixed(2)),
-    marketCap: `${fmt(t.marketCapTon)} TON`,
+    marketCap: `${fmt(t.marketCapTon)} GRAM`,
     timeAgo: timeAgo(t.createdAt),
     txs: t.txCount,
-    volume24h: `${fmt(t.realTon)} TON`,
+    volume24h: `${fmt(t.realTon)} GRAM`,
     kingOfHillProgress: Number(t.progress.toFixed(2)),
     image: t.image || `https://api.dicebear.com/7.x/shapes/svg?seed=${t.symbol}`,
   };
@@ -91,7 +91,7 @@ export default function Home() {
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q
+    let filtered = q
       ? tokens.filter(
           (t) =>
             t.symbol.toLowerCase().includes(q) ||
@@ -99,6 +99,10 @@ export default function Home() {
             t.address.toLowerCase().includes(q),
         )
       : tokens;
+    // "Complete" only lists tokens that reached 100% of the bonding curve.
+    if (sort === 'complete') {
+      filtered = filtered.filter((t) => t.graduated || t.progress >= 100);
+    }
     return sortTokens(filtered, sort);
   }, [tokens, query, sort]);
 
@@ -162,23 +166,35 @@ export default function Home() {
       </button>
 
       {/* Search bar */}
-      <div
-        className="flex items-center gap-2 px-3 h-11 rounded-xl"
-        style={{ background: '#0d111e', border: '1px solid #1e293b' }}
-      >
-        <Search size={16} className="text-[#64748B] flex-shrink-0" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, ticker or address…"
-          className="flex-1 bg-transparent text-white text-sm outline-none placeholder-[#64748B] min-w-0"
-        />
-        {query && (
-          <button onClick={() => setQuery('')} className="text-[#64748B] hover:text-white text-xs flex-shrink-0">
-            Clear
-          </button>
-        )}
+      <div className="flex items-center gap-2">
+        <div
+          className="flex-1 flex items-center gap-2 px-3 h-11 rounded-xl min-w-0"
+          style={{ background: '#0d111e', border: '1px solid #1e293b' }}
+        >
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, ticker or address…"
+            className="flex-1 bg-transparent text-white text-sm outline-none placeholder-[#64748B] min-w-0"
+          />
+          {query && (
+            <button onClick={() => setQuery('')} className="text-[#64748B] hover:text-white text-xs flex-shrink-0">
+              Clear
+            </button>
+          )}
+        </div>
+        <button
+          onClick={load}
+          className="h-11 px-4 rounded-xl flex items-center gap-1.5 font-semibold text-white text-sm flex-shrink-0 transition-all duration-200 hover:scale-[1.03]"
+          style={{
+            background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+            boxShadow: '0 2px 12px rgba(59, 130, 246, 0.3)',
+          }}
+        >
+          <Search size={16} />
+          Search
+        </button>
       </div>
 
       {/* Filter / sort buttons */}
@@ -226,7 +242,13 @@ export default function Home() {
 
       {/* No search results */}
       {!loading && !error && tokens.length > 0 && visible.length === 0 && (
-        <p className="text-center text-[#64748B] py-10 text-sm">No tokens match “{query}”.</p>
+        <p className="text-center text-[#64748B] py-10 text-sm">
+          {searching
+            ? `No tokens match “${query}”.`
+            : sort === 'complete'
+              ? 'No tokens have completed the bonding curve yet.'
+              : 'No tokens to show.'}
+        </p>
       )}
 
       {/* Token Grid */}

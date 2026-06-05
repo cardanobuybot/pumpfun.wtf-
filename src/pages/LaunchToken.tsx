@@ -352,7 +352,7 @@ export default function LaunchToken() {
             : submitting
               ? 'Creating…'
               : address
-                ? '🚀 Create Token (0.1 TON)'
+                ? '🚀 Create Token (0.1 GRAM)'
                 : 'Connect wallet to launch'}
         </button>
       </form>

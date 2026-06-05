@@ -59,7 +59,7 @@ export default function Portfolio() {
         </div>
         <h2 className="text-xl font-bold text-white mb-2">Connect Your Wallet</h2>
         <p className="text-sm text-[#94A3B8] max-w-xs mb-5">
-          Connect your TON wallet to view your portfolio and manage your tokens.
+          Connect your wallet to view your portfolio and manage your tokens.
         </p>
         <button
           onClick={() => tonConnectUI.openModal()}
@@ -88,7 +88,7 @@ export default function Portfolio() {
         }}
       >
         <p className="text-xs text-[#94A3B8] mb-1">Portfolio value</p>
-        <p className="text-3xl font-black text-white">{fmt(totalValue)} TON</p>
+        <p className="text-3xl font-black text-white">{fmt(totalValue)} GRAM</p>
         <p className="font-mono text-xs text-[#8b5cf6] mt-2">
           {address.slice(0, 6)}…{address.slice(-6)}
         </p>
@@ -143,7 +143,7 @@ export default function Portfolio() {
                 <p className="text-xs text-[#64748B]">{fmt(h.balance)} tokens</p>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-sm font-semibold text-white">{fmt(h.valueTon)} TON</p>
+                <p className="text-sm font-semibold text-white">{fmt(h.valueTon)} GRAM</p>
                 <p className="text-[10px] text-[#64748B]">{h.priceTon.toExponential(2)}</p>
               </div>
             </button>

@@ -110,7 +110,7 @@ export default function TradeHistory({
             </div>
             <div className="text-right flex-shrink-0">
               <p className={`text-sm font-medium ${isDev ? 'text-white' : 'text-white'}`}>
-                {t.tonAmount.toFixed(3)} TON
+                {t.tonAmount.toFixed(3)} GRAM
               </p>
               <p
                 className={`text-[10px] flex items-center gap-1 justify-end ${

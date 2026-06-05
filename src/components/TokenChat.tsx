@@ -169,7 +169,7 @@ export default function TokenChat({ tokenAddress }: { tokenAddress: string }) {
         </button>
       </div>
       <p className="mt-1.5 text-[10px] text-[#64748B]">
-        Messages are sent on-chain ({CHAT_MSG_VALUE} TON, refunded minus gas) · {text.length}/{MAX_LEN}
+        Messages are sent on-chain ({CHAT_MSG_VALUE} GRAM, refunded minus gas) · {text.length}/{MAX_LEN}
       </p>
     </div>
   );

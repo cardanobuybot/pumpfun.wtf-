@@ -13,7 +13,7 @@ export default function ProgressBar({ value, variant = 'green', label, showPerce
     <div className="w-full">
       <div className="flex items-center justify-between mb-1">
         {showPercentage && (
-          <span className={`font-bold ${size === 'sm' ? 'text-xs' : 'text-sm'}`} style={{ color: '#22d3ee' }}>
+          <span className={`font-bold ${size === 'sm' ? 'text-xs' : 'text-sm'}`} style={{ color: '#F59E0B' }}>
             {value.toFixed(2)}%
           </span>
         )}
@@ -26,7 +26,7 @@ export default function ProgressBar({ value, variant = 'green', label, showPerce
           className="h-full rounded-full transition-all duration-1000 ease-out"
           style={{
             width: `${Math.min(value, 100)}%`,
-            background: variant === 'green' ? 'linear-gradient(90deg, #22d3ee, #3B82F6)' : '#F59E0B',
+            background: variant === 'green' ? 'linear-gradient(90deg, #F59E0B, #FBBF24)' : '#F59E0B',
           }}
         />
       </div>

@@ -1,15 +1,8 @@
-import { useState } from 'react';
-import { Home, Plus, Search, X } from 'lucide-react';
+import { Home, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 
-interface HeaderProps {
-  onSearch?: (query: string) => void;
-}
-
-export default function Header({ onSearch }: HeaderProps) {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+export default function Header() {
   const [tonConnectUI] = useTonConnectUI();
   const address = useTonAddress();
   const shortAddress = address ? `${address.slice(0, 4)}…${address.slice(-4)}` : '';
@@ -20,12 +13,6 @@ export default function Header({ onSearch }: HeaderProps) {
     } else {
       tonConnectUI.openModal();
     }
-  };
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    onSearch?.(value);
   };
 
   return (
@@ -52,18 +39,6 @@ export default function Header({ onSearch }: HeaderProps) {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1.5">
-          {/* Search Toggle */}
-          <button
-            onClick={() => setSearchOpen(!searchOpen)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl transition-colors hover:bg-[#1e293b]"
-          >
-            {searchOpen ? (
-              <X size={18} className="text-[#94A3B8]" />
-            ) : (
-              <Search size={18} className="text-[#94A3B8]" />
-            )}
-          </button>
-
           {/* Create */}
           <Link
             to="/launch"
@@ -88,35 +63,6 @@ export default function Header({ onSearch }: HeaderProps) {
           </button>
         </div>
       </header>
-
-      {/* Search Bar */}
-      {searchOpen && (
-        <div
-          className="fixed top-14 left-0 right-0 z-40 px-3 py-2"
-          style={{
-            background: 'rgba(15, 23, 42, 0.98)',
-            borderBottom: '1px solid #1e293b',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          <div className="max-w-lg mx-auto flex items-center gap-2">
-            <div
-              className="flex-1 flex items-center gap-2 px-3 h-10 rounded-xl"
-              style={{ background: '#0d111e', border: '1px solid #1e293b' }}
-            >
-              <Search size={16} className="text-[#64748B]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={handleSearch}
-                placeholder="Search by name / ticker / ID..."
-                className="flex-1 bg-transparent text-white text-sm outline-none placeholder-[#64748B]"
-                autoFocus
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
