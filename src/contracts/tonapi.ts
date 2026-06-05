@@ -80,6 +80,25 @@ export async function fetchCreatedAt(account: string): Promise<number> {
   return t;
 }
 
+// The wallet that first funded an account = the source of its oldest incoming
+// transaction (a fresh TON wallet is always seeded by whoever created it).
+// Used by the rug check to spot linked/sybil holders that share one funder.
+// Returns '' when unknown. Immutable, so cached for the session.
+const funderCache = new Map<string, string>();
+export async function fetchFunder(account: string): Promise<string> {
+  const hit = funderCache.get(account);
+  if (hit !== undefined) return hit;
+  const url = `${TONAPI_BASE}/v2/blockchain/accounts/${encodeURIComponent(
+    account,
+  )}/transactions?limit=1&sort_order=asc`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`tonapi tx ${res.status}`);
+  const data = await res.json();
+  const src = String(data.transactions?.[0]?.in_msg?.source?.address ?? '');
+  funderCache.set(account, src);
+  return src;
+}
+
 // Unix time (seconds) of the account's last activity — used to sort by
 // "Last Bump" (most recently traded). Returns 0 when unavailable.
 // Cached in memory for a short TTL.

@@ -148,6 +148,15 @@ export async function fetchSellEstimate(address: string, tokenIn: number): Promi
     return Number(fromNano(res.stack.readBigNumber()));
 }
 
+// Whether the jetton can still be minted. For a bonding-curve token this stays
+// true (the curve mints on each buy) until graduation; mintable AFTER graduation
+// means the admin can dilute supply — a rug signal. Used by the rug check.
+export async function fetchMintable(address: string): Promise<boolean> {
+    const res = await runGet(Address.parse(address), 'get_jetton_data');
+    res.stack.readBigNumber(); // total_supply
+    return res.stack.readBoolean(); // mintable
+}
+
 // Creator ("dev") wallet of a token, as stored on the curve contract.
 // Returned in the same string form used for Trade.trader so the two compare equal.
 export async function fetchCreatorAddress(address: string): Promise<string> {

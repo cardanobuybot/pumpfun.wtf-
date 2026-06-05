@@ -8,6 +8,7 @@ import PriceChart from '../components/PriceChart';
 import TradeHistory from '../components/TradeHistory';
 import Holders from '../components/Holders';
 import TokenChat from '../components/TokenChat';
+import RugCheck from '../components/RugCheck';
 import {
   fetchTokenByAddress,
   fetchTrades,
@@ -232,6 +233,9 @@ export default function TokenDetail() {
           <p className="mt-3 text-center text-xs text-[#F59E0B]">🎓 Graduated — trading locked</p>
         )}
       </section>
+
+      {/* One-tap rug analysis (deterministic on-chain signals + Cocoon AI) */}
+      <RugCheck token={token} dev={dev} />
 
       {/* Tab bar */}
       <div className="grid grid-cols-4 gap-2">
