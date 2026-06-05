@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw, Sprout, TrendingUp, BarChart3, Flag, Search } from 'lucide-react';
 import TokenCard from '../components/TokenCard';
@@ -63,22 +63,68 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>('bump');
   const [query, setQuery] = useState('');
+  // address -> timestamp it last had on-chain activity (buy/sell). Drives the
+  // blue glow + float-to-top so people can see when a token is being traded.
+  const [bumped, setBumped] = useState<Record<string, number>>({});
+  // Per-token snapshot of the last activity / trade count seen, to detect new
+  // trades between polls. Refs so updating them never triggers a re-render.
+  const prevActivity = useRef<Map<string, number>>(new Map());
+  const prevTxCount = useRef<Map<string, number>>(new Map());
 
-  const load = async () => {
-    setLoading(true);
+  const BUMP_MS = 6000; // how long a token stays glowing + floated to the top
+
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const list = await listTokens();
+
+      // Detect tokens that gained activity since the previous snapshot. We skip
+      // the very first load (no baseline) so the whole list doesn't flash.
+      const now = Date.now();
+      const fresh: string[] = [];
+      for (const t of list) {
+        const pa = prevActivity.current.get(t.address);
+        const pc = prevTxCount.current.get(t.address);
+        const hadBaseline = pa !== undefined || pc !== undefined;
+        const moreActivity =
+          (pa !== undefined && t.lastActivity > pa) ||
+          (pc !== undefined && t.txCount > pc);
+        if (hadBaseline && moreActivity) fresh.push(t.address);
+        prevActivity.current.set(t.address, t.lastActivity);
+        prevTxCount.current.set(t.address, t.txCount);
+      }
+      if (fresh.length) {
+        setBumped((b) => {
+          const next = { ...b };
+          for (const a of fresh) next[a] = now;
+          return next;
+        });
+        for (const a of fresh) {
+          setTimeout(() => {
+            setBumped((b) => {
+              if (!b[a]) return b;
+              const { [a]: _drop, ...rest } = b;
+              return rest;
+            });
+          }, BUMP_MS);
+        }
+      }
+
       setTokens(list);
     } catch (e) {
       setError('Failed to load tokens: ' + ((e as Error)?.message ?? ''));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     load();
+    // Poll quietly in the background so trades show up as a glow without a
+    // full-screen "Loading…" flash.
+    const id = setInterval(() => load(true), 20000);
+    return () => clearInterval(id);
   }, []);
 
   // King is always the highest market-cap token (independent of the active
@@ -103,8 +149,16 @@ export default function Home() {
     if (sort === 'complete') {
       filtered = filtered.filter((t) => t.graduated || t.progress >= 100);
     }
-    return sortTokens(filtered, sort);
-  }, [tokens, query, sort]);
+    const sorted = sortTokens(filtered, sort);
+    // Float freshly-traded tokens to the very top (most recent first) so the
+    // activity glow is impossible to miss, regardless of the active sort.
+    if (Object.keys(bumped).length === 0) return sorted;
+    const front = sorted
+      .filter((t) => bumped[t.address] !== undefined)
+      .sort((a, b) => bumped[b.address] - bumped[a.address]);
+    const rest = sorted.filter((t) => bumped[t.address] === undefined);
+    return [...front, ...rest];
+  }, [tokens, query, sort, bumped]);
 
   const searching = query.trim().length > 0;
 
@@ -185,7 +239,7 @@ export default function Home() {
           )}
         </div>
         <button
-          onClick={load}
+          onClick={() => load()}
           className="h-11 px-4 rounded-xl flex items-center gap-1.5 font-semibold text-white text-sm flex-shrink-0 transition-all duration-200 hover:scale-[1.03]"
           style={{
             background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
@@ -224,7 +278,7 @@ export default function Home() {
         <h3 className="text-white font-semibold text-sm">
           {searching ? `Results (${visible.length})` : `All tokens ${tokens.length > 0 ? `(${tokens.length})` : ''}`}
         </h3>
-        <button onClick={load} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#1e293b]">
+        <button onClick={() => load()} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#1e293b]">
           <RefreshCw size={15} className={`text-[#64748B] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
@@ -254,7 +308,7 @@ export default function Home() {
       {!loading && !error && visible.length > 0 && (
         <section className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {visible.map((t) => (
-            <TokenCard key={t.address} token={toCard(t)} />
+            <TokenCard key={t.address} token={toCard(t)} glow={bumped[t.address] !== undefined} />
           ))}
         </section>
       )}

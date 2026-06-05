@@ -5,6 +5,7 @@ import type { Token } from '../data/tokens';
 interface TokenCardProps {
   token: Token;
   isKing?: boolean;
+  glow?: boolean;
 }
 
 function SocialIcon({ type, href }: { type: string; href: string }) {
@@ -39,7 +40,7 @@ function SocialIcon({ type, href }: { type: string; href: string }) {
   );
 }
 
-export default function TokenCard({ token, isKing = false }: TokenCardProps) {
+export default function TokenCard({ token, isKing = false, glow = false }: TokenCardProps) {
   const navigate = useNavigate();
   const socials = token.socials;
   const hasSocials = socials && (socials.website || socials.twitter || socials.discord || socials.telegram);
@@ -47,7 +48,7 @@ export default function TokenCard({ token, isKing = false }: TokenCardProps) {
   return (
     <div
       onClick={() => navigate(`/token/${token.id}`)}
-      className="cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:border-[#3B82F6]/40"
+      className={`cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:border-[#3B82F6]/40${glow ? ' bump-glow' : ''}`}
       style={{
         background: '#111827',
         border: isKing ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid #1e293b',
