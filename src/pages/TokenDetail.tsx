@@ -442,6 +442,10 @@ export default function TokenDetail() {
         >
           {!address ? 'Connect wallet' : isBuy ? `⚡ Buy ${token.symbol}` : `Sell ${token.symbol}`}
         </button>
+
+        <p className="text-[11px] text-center text-[#64748B] mt-3">
+          Trading fee 1% · creator earns 0.5% — we split fees 50/50
+        </p>
       </section>
       </>
       )}

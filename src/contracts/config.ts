@@ -3,7 +3,7 @@
 export const NETWORK: 'testnet' | 'mainnet' = 'testnet';
 
 // Deployed PumpFun factory (testnet). See pumpfun-contracts/deployments.json.
-export const FACTORY_ADDRESS = 'EQCRReBNDwtm5brc8L4nrfQhbG424unz7vaBu2MEh7uEZsBs';
+export const FACTORY_ADDRESS = 'EQBHMSnznc3YFeP_fbmsxTrNGIeyZdo-CkHnGAv2FHWTALQS';
 
 export const TOKEN_DECIMALS = 9;
 
