@@ -50,6 +50,7 @@ export default function TokenDetail() {
   const [amount, setAmount] = useState('');
   const [estimate, setEstimate] = useState(0);
   const [balance, setBalance] = useState(0);
+  const [slippage, setSlippage] = useState(5); // % tolerance, presets 1/3/5/10
   const [status, setStatus] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -125,6 +126,32 @@ export default function TokenDetail() {
       setStatus('Enter an amount.');
       return;
     }
+    if (!isBuy && Number(amount) > balance) {
+      setStatus('Not enough tokens.');
+      return;
+    }
+
+    // Slippage guard. The bonding-curve ops carry no on-chain min-out, so we
+    // re-quote at submit time and abort if the live estimate has slipped more
+    // than the chosen tolerance below the figure the user was shown.
+    const quoted = estimate;
+    if (quoted > 0) {
+      setStatus('Checking price…');
+      let fresh = quoted;
+      try {
+        fresh = isBuy ? await fetchBuyEstimate(id, amount) : await fetchSellEstimate(id, Number(amount));
+      } catch {
+        fresh = quoted;
+      }
+      const minReceive = quoted * (1 - slippage / 100);
+      if (fresh < minReceive) {
+        const unit = isBuy ? token?.symbol ?? 'tokens' : 'GRAM';
+        const now = isBuy ? fmt(fresh) : fresh.toFixed(4);
+        setStatus(`⚠️ Price moved more than ${slippage}% (now ~${now} ${unit}) — trade cancelled.`);
+        return;
+      }
+    }
+
     try {
       setStatus('Confirm in your wallet…');
       if (isBuy) {
@@ -133,10 +160,6 @@ export default function TokenDetail() {
           messages: [{ address: id, amount: toNano(amount).toString(), payload: buildBuyPayload() }],
         });
       } else {
-        if (Number(amount) > balance) {
-          setStatus('Not enough tokens.');
-          return;
-        }
         const walletAddr = await getUserWalletAddress(id, Address.parse(address));
         const payload = buildBurnPayload(Number(amount), Address.parse(address));
         await tonConnectUI.sendTransaction({
@@ -358,6 +381,31 @@ export default function TokenDetail() {
           )}
         </div>
 
+        {/* Slippage tolerance — guards both buy and sell against adverse moves */}
+        <div className="mb-4">
+          <label className="block text-sm text-[#94A3B8] mb-2">Slippage tolerance</label>
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 3, 5, 10].map((s) => {
+              const active = slippage === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSlippage(s)}
+                  className="h-9 rounded-lg text-xs font-semibold transition-colors"
+                  style={{
+                    background: active ? '#1E2A4A' : '#0A0E1A',
+                    border: `1px solid ${active ? '#3B82F6' : '#1E2A4A'}`,
+                    color: active ? '#FFFFFF' : '#94A3B8',
+                  }}
+                >
+                  {s}%
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="mb-5">
           <label className="block text-sm text-[#94A3B8] mb-2">You receive (est.)</label>
           <div className="flex items-center justify-between">
@@ -368,6 +416,15 @@ export default function TokenDetail() {
               {isBuy ? token.symbol : 'GRAM'}
             </span>
           </div>
+          {estimate > 0 && (
+            <p className="text-xs text-[#64748B] mt-1">
+              Min received at {slippage}%:{' '}
+              {isBuy
+                ? fmt(estimate * (1 - slippage / 100))
+                : (estimate * (1 - slippage / 100)).toFixed(4)}{' '}
+              {isBuy ? token.symbol : 'GRAM'}
+            </p>
+          )}
         </div>
 
         {status && <p className="text-sm text-center text-[#94A3B8] mb-3">{status}</p>}
