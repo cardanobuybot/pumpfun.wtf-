@@ -31,3 +31,15 @@ export const CHAT_MSG_VALUE = '0.01';
 
 export const tonscanBase =
     NETWORK === 'testnet' ? 'https://testnet.tonscan.org' : 'https://tonscan.org';
+
+// Public read-only vesting index (GET, CORS allow-origin *, no auth).
+// Lock objects for a single jetton: ?type=vesting_list&jetton=<address>.
+export const TONSCANNER_API = 'https://www.tonscanner.io/api/data';
+
+// External create-lock flow (TON Connect → CreateLock on the locker). The token
+// page's "Lock more" button deep-links here with the current jetton prefilled.
+export const VESTING_APP_URL = 'https://www.tonscanner.io/vesting';
+
+// Standard platform max supply (whole tokens) used as the % denominator when a
+// token doesn't expose an exact supply.
+export const PLATFORM_TOTAL_SUPPLY = 1_000_000_000;

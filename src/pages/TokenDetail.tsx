@@ -9,6 +9,7 @@ import TradeHistory from '../components/TradeHistory';
 import Holders from '../components/Holders';
 import TokenChat from '../components/TokenChat';
 import RugCheck from '../components/RugCheck';
+import VestingCard from '../components/VestingCard';
 import {
   fetchTokenByAddress,
   fetchTrades,
@@ -283,6 +284,9 @@ export default function TokenDetail() {
         </div>
         <PriceChart trades={trades} currentPrice={token.priceTon} />
       </section>
+
+      {/* Vesting / token locks (hidden when there are none) */}
+      <VestingCard jetton={token.address} symbol={token.symbol} />
 
       {/* Trading Panel */}
       <section className="rounded-2xl p-4" style={card}>
